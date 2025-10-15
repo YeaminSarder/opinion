@@ -1,6 +1,6 @@
 use macroquad::prelude::{camera::mouse, *};
 use rdev::display_size;
-use std::fmt;
+use std::{fmt, hint::select_unpredictable};
 
 fn should_quit() -> bool {
     is_key_down(KeyCode::Q)
@@ -90,7 +90,7 @@ impl CardImage {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ResizeEdge {
     Left,
     Right,
@@ -200,19 +200,31 @@ impl Card {
         }
     }
 
-    pub fn update(&mut self, mouse: &mut MouseTracker) {
-        let mut resize_edge = ResizeEdge::None;
+    pub fn update(& mut self, mouse: &mut Mouse) {
         let edge_margin = 10.0;
 
         let (mx, my) = mouse_position();
 
+        // if (is_mouse_button_pressed(MouseButton::Left)) {
+        //     let edge = mouse_near_edge(self.rect, mx, my, edge_margin);
+        //     if edge != ResizeEdge::None {
+        //         mouse.grab_it(self, Action::Resize(edge));
+        //     }
+        // }
+
         if (is_mouse_button_down(MouseButton::Left)) {
-            resize_edge = mouse_near_edge(self.rect, mx, my, edge_margin);
+            let resize_edge = mouse_near_edge(self.rect, mx, my, edge_margin);
             if resize_edge != ResizeEdge::None {
                 let (dx, dy) = mouse.delta();
                 resize_rect(&mut self.rect, resize_edge, dx, dy);
             }
         }
+    }
+}
+
+impl Grabbable for Card {
+    fn resize(&mut self, (dx, dy): (f32, f32), edge: &ResizeEdge) {
+        resize_rect(&mut self.rect, *edge, dx, dy);
     }
 }
 
@@ -371,6 +383,11 @@ impl Renderer {
         Shape::draw_rect(card.rect, DARKGRAY);
         // Shape::draw_rect(img, BLUE);
 
+        // for c in card.name.chars() {
+        //     let dim = measure_text(&c.to_string(), Some(font), font_size as u16, 1.0);
+        //     println!("dim: {} {:?}", String::from(c), dim);
+        // }
+
         let mut y = img.h + img.y + font_size;
 
         draw_text_ex(
@@ -450,11 +467,11 @@ async fn main() {
 
     println!("{}", fireball);
 
-    let font = load_ttf_font("/usr/share/fonts/TTF/Roboto-Regular.ttf")
+    let font = load_ttf_font("assets/font/JetBrainsMono-Medium.ttf")
         .await
         .unwrap();
 
-    let mut mouse = MouseTracker::new();
+    let mut mouse = Mouse::new();
 
     loop {
         clear_background(Color::from_rgba(31, 31, 31, 255));
@@ -474,19 +491,41 @@ async fn main() {
     }
 }
 
-/// Stores last frame’s mouse position and gives delta
-pub struct MouseTracker {
-    last_pos: (f32, f32),
+// struct Grabbable;
+// trait MouseUtils {}
+
+enum Action {
+    Resize(ResizeEdge),
 }
 
-impl MouseTracker {
+trait Grabbable {
+    fn resize(&mut self, delta: (f32, f32), edge: &ResizeEdge);
+}
+
+/// Stores last frame’s mouse position and gives delta
+pub struct Mouse<'a> {
+    last_pos: (f32, f32),
+    grab: Option<(&'a mut dyn Grabbable, Action)>,
+}
+
+impl<'a> Mouse<'a> {
     pub fn new() -> Self {
         Self {
             last_pos: mouse_position(),
+            grab: None,
         }
     }
 
     pub fn update(&mut self) {
+        let delta = self.delta();
+        if let Some((grab, Action::Resize(edge))) = &mut self.grab {
+            grab.resize(delta, edge);
+        }
+
+        if is_mouse_button_released(MouseButton::Left) {
+            self.grab = None;
+        }
+
         self.last_pos = mouse_position();
     }
 
@@ -494,7 +533,11 @@ impl MouseTracker {
         let (x, y) = mouse_position();
         let dx = x - self.last_pos.0;
         let dy = y - self.last_pos.1;
-        self.last_pos = (x, y);
+        // self.last_pos = (x, y);
         (dx, dy)
+    }
+
+    pub fn grab_it<'aa>(&mut self, obj: &'a mut dyn Grabbable, act: Action) {
+        self.grab = Some((obj, act));
     }
 }
