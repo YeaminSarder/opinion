@@ -200,15 +200,15 @@ impl Card {
         }
     }
 
-    pub fn update(&mut self, mouse: &mut Mouse) {
+    pub fn update<'a>(&'a mut self, mouse: &mut Mouse<'a>) {
         let edge_margin = 10.0;
 
         let (mx, my) = mouse_position();
 
         if (is_mouse_button_pressed(MouseButton::Left)) {
-            let resize_edge = mouse_near_edge(self.rect, mx, my, edge_margin);
-            if resize_edge != ResizeEdge::None {
-                mouse.grab_it(self, Action::Resize(resize_edge));
+            let edge = mouse_near_edge(self.rect, mx, my, edge_margin);
+            if edge != ResizeEdge::None {
+                mouse.grab_it(self, Action::Resize(edge));
             }
         }
 
@@ -537,7 +537,7 @@ impl<'a> Mouse<'a> {
         (dx, dy)
     }
 
-    pub fn grab_it(&mut self, obj: &'a mut dyn Grabbable, act: Action) {
+    pub fn grab_it<'aa>(&mut self, obj: &'a mut dyn Grabbable, act: Action) {
         self.grab = Some((obj, act));
     }
 }
