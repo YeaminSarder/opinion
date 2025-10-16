@@ -1,14 +1,18 @@
-use macroquad::prelude::{camera::mouse};
+#![allow(dead_code)]
+
+//use macroquad::prelude::{camera::mouse};
 use macroquad::prelude as mcp;
-use std::{fmt, hint::select_unpredictable};
+//use std::{fmt, hint::select_unpredictable};
+use std::fmt;
 
-use macroquad::hash;
-use macroquad::ui::root_ui;
-use macroquad::ui::widgets::Window;
-use macroquad::ui::{Id, Ui};
+//use macroquad::hash;
+//use macroquad::ui::root_ui;
+//use macroquad::ui::widgets::Window;
+//use macroquad::ui::{Id, Ui};
 
-#[cfg(not(target_arch = "wasm32"))]
-use rdev::display_size;
+// #[cfg(not(target_arch = "wasm32"))]
+// #[allow(unused_imports)]
+// use rdev::display_size;
 
 static mut __UID: u32 = 0;
 pub fn new_uid() -> u32 {
@@ -56,6 +60,7 @@ impl RectExt for mcp::Rect {
         self
     }
 }
+
 
 struct SizeRatio;
 impl SizeRatio {
@@ -378,12 +383,10 @@ impl Renderer {
     }
 
     fn render_card_img(img: &CardImage) {
-        let mut y: f32 = 0.0;
-        let mut x: f32 = 0.0;
         for r in 0..img.rows {
-            y = (r * img.cell_size) as f32;
+            let y = (r * img.cell_size) as f32;
             for c in 0..img.cols {
-                x = (c * img.cell_size) as f32;
+                let x = (c * img.cell_size) as f32;
 
                 mcp::draw_rectangle(x, y, img.cell_size as f32, img.cell_size as f32, mcp::BLUE);
             }
@@ -453,7 +456,7 @@ fn handle_grid_click(grid: &mut Vec<bool>, cols: usize, rows: usize, cell_size: 
 
 fn window_conf() -> mcp::Conf {
     let default_win_size = (800, 600);
-    let (mut width, mut height) = default_win_size;
+    let (width, height) = default_win_size;
     // (width, height) = display_size().unwrap_or(default_win_size);
     println!("width: {} heigt: {}", width, height);
 
