@@ -466,6 +466,12 @@ fn window_conf() -> Conf {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+const FONT_PATH: &str = "public/assets/font/JetBrainsMono-Medium.ttf";
+
+#[cfg(target_arch = "wasm32")]
+const FONT_PATH: &str = "assets/font/JetBrainsMono-Medium.ttf";
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let card_width = SizeRatio::get_x(0.4);
@@ -489,9 +495,7 @@ async fn main() {
 
     let mut cards = vec![fireball];
 
-    let font = load_ttf_font("assets/font/JetBrainsMono-Medium.ttf")
-        .await
-        .unwrap();
+    let font = load_ttf_font(FONT_PATH).await.unwrap();
 
     let mut mouse = Mouse::new();
 
