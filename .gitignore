@@ -6,3 +6,7 @@
 # Added by cargo
 
 /target
+
+# Added my who
+/macroquad
+/particles-editor

@@ -1,6 +1,19 @@
 use macroquad::prelude::{camera::mouse, *};
-use rdev::display_size;
 use std::{fmt, hint::select_unpredictable};
+
+use macroquad::hash;
+use macroquad::ui::root_ui;
+use macroquad::ui::widgets::Window;
+use macroquad::ui::{Id, Ui};
+
+#[cfg(not(target_arch = "wasm32"))]
+use rdev::display_size;
+
+static mut __UID: u32 = 0;
+pub fn new_uid() -> u32 {
+    unsafe { __UID += 1 }
+    unsafe { __UID }
+}
 
 fn should_quit() -> bool {
     is_key_down(KeyCode::Q)
@@ -173,6 +186,7 @@ fn resize_rect(rect: &mut Rect, edge: ResizeEdge, mouse_dx: f32, mouse_dy: f32) 
 }
 
 pub struct Card {
+    id: u32,
     img: CardImage,
     pub name: String,
     pub desc: String,
@@ -191,24 +205,25 @@ impl Card {
         rect: Rect,
     ) -> Self {
         Self {
+            id: new_uid(),
             img,
-            name: name.to_string(),
-            desc: desc.to_string(),
+            rect,
             power,
             card_type,
-            rect,
+            name: name.to_string(),
+            desc: desc.to_string(),
         }
     }
 
-    pub fn update<'a>(&'a mut self, mouse: &mut Mouse<'a>) {
+    pub fn update(&mut self, mouse: &mut Mouse, ind: usize) {
         let edge_margin = 10.0;
 
         let (mx, my) = mouse_position();
 
-        if (is_mouse_button_pressed(MouseButton::Left)) {
+        if is_mouse_button_pressed(MouseButton::Left) {
             let edge = mouse_near_edge(self.rect, mx, my, edge_margin);
             if edge != ResizeEdge::None {
-                mouse.grab_it(self, Action::Resize(edge));
+                mouse.grab_it(Obj::Card(ind), Action::Resize(edge));
             }
         }
 
@@ -219,6 +234,10 @@ impl Card {
         //         resize_rect(&mut self.rect, resize_edge, dx, dy);
         //     }
         // }
+    }
+
+    fn resize(&mut self, (dx, dy): (f32, f32), edge: &ResizeEdge) {
+        resize_rect(&mut self.rect, *edge, dx, dy);
     }
 }
 
@@ -451,7 +470,7 @@ async fn main() {
     let card_width = SizeRatio::get_x(0.4);
     let card_height = SizeRatio::get_y(0.6);
 
-    let mut fireball = Card::new(
+    let fireball = Card::new(
         CardImage::new(10, 10),
         "Fireball",
         "Deals fire damage to enemies.",
@@ -467,6 +486,8 @@ async fn main() {
 
     println!("{}", fireball);
 
+    let mut cards = vec![fireball];
+
     let font = load_ttf_font("assets/font/JetBrainsMono-Medium.ttf")
         .await
         .unwrap();
@@ -480,12 +501,25 @@ async fn main() {
             break;
         }
 
-        // update
-        fireball.update(&mut mouse);
+        // Window::new(hash!(), vec2(20., 20.), vec2(420., 400.))
+        //     .label("Particles")
+        //     .close_button(true)
+        //     .ui(&mut root_ui(), |ui| {});
 
-        Renderer::render_card(&fireball, &font);
+        //update
+        for (ind, card) in cards.iter_mut().enumerate() {
+            card.update(&mut mouse, ind);
+        }
 
-        mouse.update();
+        for card in cards.iter() {
+            Renderer::render_card(&card, &font);
+        }
+
+        let mouse_contex = MouseContex {
+            cards: Some(&mut cards),
+        };
+
+        mouse.update(mouse_contex);
         draw_fps();
         next_frame().await
     }
@@ -494,21 +528,27 @@ async fn main() {
 // struct Grabbable;
 // trait MouseUtils {}
 
-enum Action {
+pub enum Action {
     Resize(ResizeEdge),
+}
+pub enum Obj {
+    Card(usize),
+}
+
+pub struct MouseContex<'a> {
+    cards: Option<&'a mut Vec<Card>>,
 }
 
 trait Grabbable {
     fn resize(&mut self, delta: (f32, f32), edge: &ResizeEdge);
 }
 
-/// Stores last frame’s mouse position and gives delta
-pub struct Mouse<'a> {
+pub struct Mouse {
     last_pos: (f32, f32),
-    grab: Option<(&'a mut dyn Grabbable, Action)>,
+    grab: Option<(Obj, Action)>,
 }
 
-impl<'a> Mouse<'a> {
+impl Mouse {
     pub fn new() -> Self {
         Self {
             last_pos: mouse_position(),
@@ -516,10 +556,17 @@ impl<'a> Mouse<'a> {
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, ctx: MouseContex) {
         let delta = self.delta();
-        if let Some((grab, Action::Resize(edge))) = &mut self.grab {
-            grab.resize(delta, edge);
+
+        if let Some((grab, act)) = &mut self.grab {
+            match (grab, act) {
+                (Obj::Card(ind), Action::Resize(edge)) => {
+                    if let Some(cards) = ctx.cards {
+                        cards[*ind].resize(delta, edge);
+                    }
+                }
+            }
         }
 
         if is_mouse_button_released(MouseButton::Left) {
@@ -537,7 +584,7 @@ impl<'a> Mouse<'a> {
         (dx, dy)
     }
 
-    pub fn grab_it<'aa>(&mut self, obj: &'a mut dyn Grabbable, act: Action) {
+    pub fn grab_it(&mut self, obj: Obj, act: Action) {
         self.grab = Some((obj, act));
     }
 }
