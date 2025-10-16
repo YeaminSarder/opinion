@@ -224,20 +224,21 @@ impl Card {
             let edge = mouse_near_edge(self.rect, mx, my, edge_margin);
             if edge != ResizeEdge::None {
                 mouse.grab_it(Obj::Card(ind), Action::Resize(edge));
+                return;
+            }
+
+            if self.rect.contains(Vec2::new(mx, my)) {
+                mouse.grab_it(Obj::Card(ind), Action::Move);
             }
         }
-
-        // if (is_mouse_button_down(MouseButton::Left)) {
-        //     resize_edge = mouse_near_edge(self.rect, mx, my, edge_margin);
-        //     if resize_edge != ResizeEdge::None {
-        //         let (dx, dy) = mouse.delta();
-        //         resize_rect(&mut self.rect, resize_edge, dx, dy);
-        //     }
-        // }
     }
 
-    fn resize(&mut self, (dx, dy): (f32, f32), edge: &ResizeEdge) {
-        resize_rect(&mut self.rect, *edge, dx, dy);
+    fn resize(&mut self, (dx, dy): (f32, f32), edge: ResizeEdge) {
+        resize_rect(&mut self.rect, edge, dx, dy);
+    }
+
+    fn move_to(&mut self, (mx, my): (f32, f32)) {
+        self.rect.move_to(Vec2::new(mx, my));
     }
 }
 
@@ -525,12 +526,13 @@ async fn main() {
     }
 }
 
-// struct Grabbable;
-// trait MouseUtils {}
-
+#[derive(Clone, Copy)]
 pub enum Action {
     Resize(ResizeEdge),
+    Move,
 }
+
+#[derive(Clone, Copy)]
 pub enum Obj {
     Card(usize),
 }
@@ -559,13 +561,13 @@ impl Mouse {
     pub fn update(&mut self, ctx: MouseContex) {
         let delta = self.delta();
 
-        if let Some((grab, act)) = &mut self.grab {
-            match (grab, act) {
-                (Obj::Card(ind), Action::Resize(edge)) => {
-                    if let Some(cards) = ctx.cards {
-                        cards[*ind].resize(delta, edge);
-                    }
-                }
+        if let Some((grab, act)) = self.grab {
+            match (grab, ctx.cards) {
+                (Obj::Card(ind), Some(cards)) => match act {
+                    Action::Resize(edge) => cards[ind].resize(delta, edge),
+                    Action::Move => cards[ind].move_to(mouse_position()),
+                },
+                (_, _) => {}
             }
         }
 
@@ -584,7 +586,12 @@ impl Mouse {
         (dx, dy)
     }
 
-    pub fn grab_it(&mut self, obj: Obj, act: Action) {
+    pub fn grab_it(&mut self, obj: Obj, act: Action) -> bool {
+        if self.grab.is_some() {
+            return false;
+        }
+
         self.grab = Some((obj, act));
+        true
     }
 }
