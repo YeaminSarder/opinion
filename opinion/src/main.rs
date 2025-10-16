@@ -1,4 +1,5 @@
-use macroquad::prelude::{camera::mouse, *};
+use macroquad::prelude::{camera::mouse};
+use macroquad::prelude as mcp;
 use std::{fmt, hint::select_unpredictable};
 
 use macroquad::hash;
@@ -16,38 +17,38 @@ pub fn new_uid() -> u32 {
 }
 
 fn should_quit() -> bool {
-    is_key_down(KeyCode::Q)
-        && (is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl))
+    mcp::is_key_down(mcp::KeyCode::Q)
+        && (mcp::is_key_down(mcp::KeyCode::LeftControl) || mcp::is_key_down(mcp::KeyCode::RightControl))
 }
 
 fn draw_fps() {
-    draw_text(&get_fps().to_string(), 20.0, 20.0, 30.0, WHITE);
+    mcp::draw_text(&mcp::get_fps().to_string(), 20.0, 20.0, 30.0, mcp::WHITE);
 }
 
 pub trait RectExt {
-    fn from_y(&mut self, y: f32) -> &mut Rect;
-    fn with_height(&mut self, w: f32) -> &mut Rect;
-    fn with_width(&mut self, h: f32) -> &mut Rect;
-    fn clip_by(&mut self, d: f32) -> &mut Rect;
+    fn from_y(&mut self, y: f32) -> &mut mcp::Rect;
+    fn with_height(&mut self, w: f32) -> &mut mcp::Rect;
+    fn with_width(&mut self, h: f32) -> &mut mcp::Rect;
+    fn clip_by(&mut self, d: f32) -> &mut mcp::Rect;
 }
 
-impl RectExt for Rect {
-    fn from_y(&mut self, y: f32) -> &mut Rect {
+impl RectExt for mcp::Rect {
+    fn from_y(&mut self, y: f32) -> &mut mcp::Rect {
         self.y = y;
         self
     }
 
-    fn with_width(&mut self, w: f32) -> &mut Rect {
+    fn with_width(&mut self, w: f32) -> &mut mcp::Rect {
         self.w = w;
         self
     }
 
-    fn with_height(&mut self, h: f32) -> &mut Rect {
+    fn with_height(&mut self, h: f32) -> &mut mcp::Rect {
         self.h = h;
         self
     }
 
-    fn clip_by(&mut self, d: f32) -> &mut Rect {
+    fn clip_by(&mut self, d: f32) -> &mut mcp::Rect {
         self.x += d;
         self.y += d;
         self.w -= d * 2.0;
@@ -58,21 +59,21 @@ impl RectExt for Rect {
 
 struct SizeRatio;
 impl SizeRatio {
-    pub fn new(x: f32, y: f32, w: f32, h: f32) -> Rect {
-        Rect {
-            x: screen_width() * x,
-            y: screen_height() * y,
-            w: screen_width() * w,
-            h: screen_height() * h,
+    pub fn new(x: f32, y: f32, w: f32, h: f32) -> mcp::Rect {
+        mcp::Rect {
+            x: mcp::screen_width() * x,
+            y: mcp::screen_height() * y,
+            w: mcp::screen_width() * w,
+            h: mcp::screen_height() * h,
         }
     }
 
     pub fn get_x(val: f32) -> f32 {
-        screen_width() * val
+        mcp::screen_width() * val
     }
 
     pub fn get_y(val: f32) -> f32 {
-        screen_height() * val
+        mcp::screen_height() * val
     }
 }
 
@@ -117,7 +118,7 @@ pub enum ResizeEdge {
 }
 
 /// Check if mouse is near the edge of a rect
-fn mouse_near_edge(rect: Rect, mouse_x: f32, mouse_y: f32, edge_margin: f32) -> ResizeEdge {
+fn mouse_near_edge(rect: mcp::Rect, mouse_x: f32, mouse_y: f32, edge_margin: f32) -> ResizeEdge {
     let left = (mouse_x - rect.x).abs() < edge_margin;
     let right = (mouse_x - (rect.x + rect.w)).abs() < edge_margin;
     let top = (mouse_y - rect.y).abs() < edge_margin;
@@ -137,7 +138,7 @@ fn mouse_near_edge(rect: Rect, mouse_x: f32, mouse_y: f32, edge_margin: f32) -> 
 }
 
 /// Example: resize rect while dragging
-fn resize_rect(rect: &mut Rect, edge: ResizeEdge, mouse_dx: f32, mouse_dy: f32) {
+fn resize_rect(rect: &mut mcp::Rect, edge: ResizeEdge, mouse_dx: f32, mouse_dy: f32) {
     match edge {
         ResizeEdge::Left => {
             rect.x += mouse_dx;
@@ -192,7 +193,7 @@ pub struct Card {
     pub desc: String,
     pub power: u32,
     pub card_type: CardType,
-    rect: Rect,
+    rect: mcp::Rect,
 }
 
 impl Card {
@@ -202,7 +203,7 @@ impl Card {
         desc: &str,
         power: u32,
         card_type: CardType,
-        rect: Rect,
+        rect: mcp::Rect,
     ) -> Self {
         Self {
             id: new_uid(),
@@ -218,16 +219,16 @@ impl Card {
     pub fn update(&mut self, mouse: &mut Mouse, ind: usize) {
         let edge_margin = 10.0;
 
-        let (mx, my) = mouse_position();
+        let (mx, my) = mcp::mouse_position();
 
-        if is_mouse_button_pressed(MouseButton::Left) {
+        if mcp::is_mouse_button_pressed(mcp::MouseButton::Left) {
             let edge = mouse_near_edge(self.rect, mx, my, edge_margin);
             if edge != ResizeEdge::None {
                 mouse.grab_it(Obj::Card(ind), Action::Resize(edge));
                 return;
             }
 
-            if self.rect.contains(Vec2::new(mx, my)) {
+            if self.rect.contains(mcp::Vec2::new(mx, my)) {
                 mouse.grab_it(Obj::Card(ind), Action::Move);
             }
         }
@@ -238,7 +239,7 @@ impl Card {
     }
 
     fn move_to(&mut self, (mx, my): (f32, f32)) {
-        self.rect.move_to(Vec2::new(mx, my));
+        self.rect.move_to(mcp::Vec2::new(mx, my));
     }
 }
 
@@ -260,29 +261,29 @@ impl fmt::Display for Card {
 
 struct Shape;
 impl Shape {
-    fn draw_rect(rect: Rect, color: Color) {
-        draw_rectangle(rect.x, rect.y, rect.w, rect.h, color);
+    fn draw_rect(rect: mcp::Rect, color: mcp::Color) {
+        mcp::draw_rectangle(rect.x, rect.y, rect.w, rect.h, color);
     }
 }
 
-fn draw_text_in_rect_char_wrap(text: &str, rect: Rect, font: &Font, font_size: u16, color: Color) {
+fn draw_text_in_rect_char_wrap(text: &str, rect: mcp::Rect, font: &mcp::Font, font_size: u16, color: mcp::Color) {
     let scale = 1.0;
     let mut line = String::new();
     let mut y = rect.y + font_size as f32;
 
     for ch in text.chars() {
         let test_line = format!("{}{}", line, ch);
-        let dims = measure_text(&test_line, Some(font), font_size, scale);
+        let dims = mcp::measure_text(&test_line, Some(font), font_size, scale);
 
         if dims.width < rect.w {
             line = test_line;
         } else {
             // Draw the line
-            draw_text_ex(
+            mcp::draw_text_ex(
                 &line,
                 rect.x,
                 y,
-                TextParams {
+                mcp::TextParams {
                     font: Some(font),
                     font_size,
                     color,
@@ -303,11 +304,11 @@ fn draw_text_in_rect_char_wrap(text: &str, rect: Rect, font: &Font, font_size: u
 
     // Draw last line
     if !line.is_empty() && y <= rect.y + rect.h {
-        draw_text_ex(
+        mcp::draw_text_ex(
             &line,
             rect.x,
             y,
-            TextParams {
+            mcp::TextParams {
                 font: Some(font),
                 font_size,
                 color,
@@ -317,10 +318,10 @@ fn draw_text_in_rect_char_wrap(text: &str, rect: Rect, font: &Font, font_size: u
     }
 
     // Optional debug rectangle
-    // draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, GRAY);
+    // draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, mcp::GRAY);
 }
 
-fn draw_text_in_rect(text: &str, rect: Rect, font_size: u16, color: Color) {
+fn draw_text_in_rect(text: &str, rect: mcp::Rect, font_size: u16, color: mcp::Color) {
     let scale = 1.0;
     let words: Vec<&str> = text.split_whitespace().collect();
 
@@ -334,14 +335,14 @@ fn draw_text_in_rect(text: &str, rect: Rect, font_size: u16, color: Color) {
             format!("{} {}", line, word)
         };
 
-        let dims = measure_text(&test_line, None, font_size, scale);
+        let dims = mcp::measure_text(&test_line, None, font_size, scale);
 
         // If line fits, keep adding words
         if dims.width < rect.w {
             line = test_line;
         } else {
             // Draw current line
-            draw_text(&line, rect.x, y, font_size as f32, color);
+            mcp::draw_text(&line, rect.x, y, font_size as f32, color);
             // Start new line
             line = word.to_string();
             y += font_size as f32 * 1.2; // line spacing
@@ -355,11 +356,11 @@ fn draw_text_in_rect(text: &str, rect: Rect, font_size: u16, color: Color) {
 
     // Draw last line if any left
     if !line.is_empty() && y <= rect.y + rect.h {
-        draw_text(&line, rect.x, y, font_size as f32, color);
+        mcp::draw_text(&line, rect.x, y, font_size as f32, color);
     }
 
     // Optional: draw border to visualize rect
-    draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, GRAY);
+    mcp::draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, mcp::GRAY);
 }
 
 struct Renderer;
@@ -367,12 +368,12 @@ impl Renderer {
     fn render_grid(x: f32, y: f32, rows: u16, cols: u16, cell_size: u16) {
         for r in 0..rows {
             let py = y + (r * cell_size) as f32;
-            draw_line(x, py, x + (cell_size * cols) as f32, py, 2.0, BLACK);
+            mcp::draw_line(x, py, x + (cell_size * cols) as f32, py, 2.0, mcp::BLACK);
         }
 
         for c in 0..cols {
             let px = x + (c * cell_size) as f32;
-            draw_line(px, y, px, y + (cell_size * rows) as f32, 2.0, BLACK);
+            mcp::draw_line(px, y, px, y + (cell_size * rows) as f32, 2.0, mcp::BLACK);
         }
     }
 
@@ -384,14 +385,14 @@ impl Renderer {
             for c in 0..img.cols {
                 x = (c * img.cell_size) as f32;
 
-                draw_rectangle(x, y, img.cell_size as f32, img.cell_size as f32, BLUE);
+                mcp::draw_rectangle(x, y, img.cell_size as f32, img.cell_size as f32, mcp::BLUE);
             }
         }
 
         Renderer::render_grid(0.0, 0.0, img.rows, img.cols, img.cell_size);
     }
 
-    fn render_card(card: &Card, font: &Font) {
+    fn render_card(card: &Card, font: &mcp::Font) {
         let offset = 4.0;
         let border = 4.0;
         let font_size = 30.0;
@@ -400,24 +401,24 @@ impl Renderer {
         let mut img = card.rect.clone();
         img.with_height(card.rect.h / 2.0).clip_by(border);
 
-        Shape::draw_rect(card.rect, DARKGRAY);
+        Shape::draw_rect(card.rect, mcp::DARKGRAY);
         // Shape::draw_rect(img, BLUE);
 
         // for c in card.name.chars() {
-        //     let dim = measure_text(&c.to_string(), Some(font), font_size as u16, 1.0);
+        //     let dim = mcp::measure_text(&c.to_string(), Some(font), font_size as u16, 1.0);
         //     println!("dim: {} {:?}", String::from(c), dim);
         // }
 
         let mut y = img.h + img.y + font_size;
 
-        draw_text_ex(
+        mcp::draw_text_ex(
             &card.name,
             img.x,
             y,
-            TextParams {
+            mcp::TextParams {
                 font: Some(&font),
                 font_size: font_size as u16,
-                color: WHITE,
+                color: mcp::WHITE,
                 ..Default::default()
             },
         );
@@ -426,10 +427,10 @@ impl Renderer {
 
         draw_text_in_rect_char_wrap(
             &card.desc,
-            Rect::new(img.x, y, img.w, img.h),
+            mcp::Rect::new(img.x, y, img.w, img.h),
             font,
             dec_font_size as u16,
-            WHITE,
+            mcp::WHITE,
         );
 
         Renderer::render_card_img(&card.img);
@@ -437,8 +438,8 @@ impl Renderer {
 }
 
 fn handle_grid_click(grid: &mut Vec<bool>, cols: usize, rows: usize, cell_size: f32) {
-    if is_mouse_button_pressed(MouseButton::Left) {
-        let (mx, my) = mouse_position();
+    if mcp::is_mouse_button_pressed(mcp::MouseButton::Left) {
+        let (mx, my) = mcp::mouse_position();
 
         let col = (mx / cell_size) as usize;
         let row = (my / cell_size) as usize;
@@ -450,13 +451,13 @@ fn handle_grid_click(grid: &mut Vec<bool>, cols: usize, rows: usize, cell_size: 
     }
 }
 
-fn window_conf() -> Conf {
+fn window_conf() -> mcp::Conf {
     let default_win_size = (800, 600);
     let (mut width, mut height) = default_win_size;
     // (width, height) = display_size().unwrap_or(default_win_size);
     println!("width: {} heigt: {}", width, height);
 
-    Conf {
+    mcp::Conf {
         window_title: "Opinion".to_owned(),
         // fullscreen: true,
         window_resizable: true,
@@ -483,9 +484,9 @@ async fn main() {
         "Deals fire damage to enemies.",
         50,
         CardType::Magic,
-        Rect::new(
-            screen_width() / 2.0 - card_width / 2.0,
-            screen_height() / 2.0 - card_height / 2.0,
+        mcp::Rect::new(
+            mcp::screen_width() / 2.0 - card_width / 2.0,
+            mcp::screen_height() / 2.0 - card_height / 2.0,
             card_width,
             card_height,
         ),
@@ -495,12 +496,12 @@ async fn main() {
 
     let mut cards = vec![fireball];
 
-    let font = load_ttf_font(FONT_PATH).await.unwrap();
+    let font = mcp::load_ttf_font(FONT_PATH).await.unwrap();
 
     let mut mouse = Mouse::new();
 
     loop {
-        clear_background(Color::from_rgba(31, 31, 31, 255));
+        mcp::clear_background(mcp::Color::from_rgba(31, 31, 31, 255));
 
         if should_quit() {
             break;
@@ -526,7 +527,7 @@ async fn main() {
 
         mouse.update(mouse_contex);
         draw_fps();
-        next_frame().await
+        mcp::next_frame().await
     }
 }
 
@@ -557,7 +558,7 @@ pub struct Mouse {
 impl Mouse {
     pub fn new() -> Self {
         Self {
-            last_pos: mouse_position(),
+            last_pos: mcp::mouse_position(),
             grab: None,
         }
     }
@@ -569,21 +570,21 @@ impl Mouse {
             match (grab, ctx.cards) {
                 (Obj::Card(ind), Some(cards)) => match act {
                     Action::Resize(edge) => cards[ind].resize(delta, edge),
-                    Action::Move => cards[ind].move_to(mouse_position()),
+                    Action::Move => cards[ind].move_to(mcp::mouse_position()),
                 },
                 (_, _) => {}
             }
         }
 
-        if is_mouse_button_released(MouseButton::Left) {
+        if mcp::is_mouse_button_released(mcp::MouseButton::Left) {
             self.grab = None;
         }
 
-        self.last_pos = mouse_position();
+        self.last_pos = mcp::mouse_position();
     }
 
     pub fn delta(&mut self) -> (f32, f32) {
-        let (x, y) = mouse_position();
+        let (x, y) = mcp::mouse_position();
         let dx = x - self.last_pos.0;
         let dy = y - self.last_pos.1;
         // self.last_pos = (x, y);
