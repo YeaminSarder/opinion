@@ -11,3 +11,6 @@
 # Added my who
 /macroquad
 /particles-editor
+
+# confidential
+.env.local
