@@ -4,8 +4,8 @@ use macroquad::prelude::coroutines::tweens::linear;
 //use macroquad::prelude::{camera::mouse};
 use macroquad::prelude::{self as mcp, debug};
 //use std::{fmt, hint::select_unpredictable};
-use rand::seq::SliceRandom;
-use rand::{Rng, distr::Uniform, rng};
+// use rand::seq::SliceRandom;
+// use rand::{Rng, distr::Uniform, rng};
 use std::fmt; // for choose()
 
 //use macroquad::hash;
@@ -16,6 +16,142 @@ use std::fmt; // for choose()
 // #[cfg(not(target_arch = "wasm32"))]
 // #[allow(unused_imports)]
 // use rdev::display_size;
+
+#[derive(Clone, Copy, Debug)]
+pub struct SimpleRng {
+    state: u64,
+}
+
+unsafe extern "C" {
+    fn get_seed() -> u64;
+}
+
+impl SimpleRng {
+    /// Create a new RNG from a user-provided seed.
+    pub fn from_seed(seed: u64) -> Self {
+        // avoid zero state (xorshift degenerate)
+        let state = if seed == 0 {
+            0x9e3779b97f4a7c15u64
+        } else {
+            seed
+        };
+        SimpleRng { state }
+    }
+
+    /// Create an RNG with a simple default seed.
+    /// On native, this will try to use the current time; on wasm it falls back to a fixed value.
+    pub fn from_entropy() -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let nanos = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_nanos() as u64)
+                .unwrap_or(0);
+            // mix with address of a local var for tiny extra variability
+            let mix = (&nanos as *const u64 as u64).wrapping_mul(0xf39cc0605cedc835u64);
+            SimpleRng::from_seed(nanos ^ mix)
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            // wasm: avoid pulling in web-sys/wasm-bindgen here.
+            // If you want real entropy in wasm, pass a seed from JS (e.g. crypto.getRandomValues).
+            // SimpleRng::from_seed(0x1234_5678_dead_beefu64)
+            let seed = unsafe { get_seed() };
+            SimpleRng::from_seed(seed)
+        }
+    }
+
+    /// xorshift64* implementation -> returns 64-bit random value
+    pub fn next_u64(&mut self) -> u64 {
+        // xorshift64* from Marsaglia / Sebastiano Vigna variant
+        let mut x = self.state;
+        // x must be non-zero; we enforced in from_seed
+        x ^= x >> 12;
+        x ^= x << 25;
+        x ^= x >> 27;
+        self.state = x;
+        x.wrapping_mul(2685821657736338717u64)
+    }
+
+    /// 32-bit random
+    pub fn next_u32(&mut self) -> u32 {
+        (self.next_u64() >> 32) as u32
+    }
+
+    /// generate a number in range [start, end) (usize)
+    pub fn gen_range(&mut self, start: usize, end: usize) -> usize {
+        let len = end.saturating_sub(start);
+        if len == 0 {
+            return start;
+        }
+        // simple modulo reduction (ok unless you need perfectly unbiased distribution)
+        (self.next_u64() as usize % len) + start
+    }
+
+    /// Fisher-Yates shuffle using this RNG
+    pub fn shuffle<T>(&mut self, slice: &mut [T]) {
+        let n = slice.len();
+        if n <= 1 {
+            return;
+        }
+        for i in (1..n).rev() {
+            let j = self.gen_range(0, i + 1);
+            slice.swap(i, j);
+        }
+    }
+
+    /// Choose `k` distinct items from `items` (no replacement). Returns owned `Vec<T>` by cloning.
+    /// Requires T: Clone. Order of returned elements is random.
+    pub fn choose_multiple_without_replacement<T: Clone>(
+        &mut self,
+        items: &[T],
+        k: usize,
+    ) -> Vec<T> {
+        let k = k.min(items.len());
+        // If k is close to items.len(), it's cheaper to shuffle indices or copy then shuffle.
+        // We'll copy indices, shuffle, and take first k.
+        let mut idxs: Vec<usize> = (0..items.len()).collect();
+        self.shuffle(&mut idxs);
+        idxs.into_iter().take(k).map(|i| items[i].clone()).collect()
+    }
+
+    /// Choose `k` items with replacement (duplicates allowed)
+    pub fn choose_multiple_with_replacement<T: Clone>(&mut self, items: &[T], k: usize) -> Vec<T> {
+        if items.is_empty() || k == 0 {
+            return Vec::new();
+        }
+        (0..k)
+            .map(|_| {
+                let i = self.gen_range(0, items.len());
+                items[i].clone()
+            })
+            .collect()
+    }
+
+    /// Remove `n` random elements from the back-ish (i.e. pick n random indices and remove them).
+    /// This removes by swapping each chosen element to the end and popping — more efficient than repeated remove.
+    /// Returns removed elements in arbitrary order.
+    pub fn remove_random_n<T>(&mut self, vec: &mut Vec<T>, n: usize) -> Vec<T> {
+        let take = n.min(vec.len());
+        let mut removed = Vec::with_capacity(take);
+        // We will pick `take` distinct indices by performing a partial Fisher-Yates on indices.
+        // Equivalent to picking `take` unique random elements.
+        let mut i = vec.len();
+        for _ in 0..take {
+            i -= 1;
+            // pick j in [0..=i]
+            let j = self.gen_range(0, i + 1);
+            vec.swap(i, j);
+            // pop element at end (which was at j)
+            if let Some(x) = vec.pop() {
+                removed.push(x);
+            }
+        }
+        removed
+    }
+}
 
 static mut __UID: u32 = 0;
 pub fn new_uid() -> u32 {
@@ -659,10 +795,9 @@ impl CardCollection {
     }
 
     pub fn get_random(&self, count: usize) -> Vec<Card> {
-        rand::rng()
-            .sample_iter(Uniform::new_inclusive(0, self.col.len() - 1).unwrap())
+        let mut rng = SimpleRng::from_entropy();
+        std::iter::repeat_with(|| self.col[rng.gen_range(0, self.col.len() - 1)].clone())
             .take(count)
-            .map(|ind| self.col[ind].clone())
             .collect()
     }
 }

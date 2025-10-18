@@ -24,6 +24,14 @@
     <!-- <script src="https://not-fl3.github.io/miniquad-samples/gl.js"></script> -->
     <!-- <script src="plugin.js"></script> -->
     <script src="gl.js"></script>
+    <script>
+        importObject.env.get_seed = () => {
+            const buf = new Uint32Array(2);
+            crypto.getRandomValues(buf);
+            const seed = (BigInt(buf[0]) << 32n) | BigInt(buf[1]);
+            return seed;
+        }
+    </script>
     <script>load("opinion.wasm");</script>
 </body>
 
