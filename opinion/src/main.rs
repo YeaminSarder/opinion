@@ -6,16 +6,16 @@ use macroquad::prelude::{self as mcp, debug};
 //use std::{fmt, hint::select_unpredictable};
 // use rand::seq::SliceRandom;
 // use rand::{Rng, distr::Uniform, rng};
-use std::fmt; // for choose()
+use std::{default, fmt}; // for choose()
 
 //use macroquad::hash;
 //use macroquad::ui::root_ui;
 //use macroquad::ui::widgets::Window;
 //use macroquad::ui::{Id, Ui};
 
-// #[cfg(not(target_arch = "wasm32"))]
-// #[allow(unused_imports)]
-// use rdev::display_size;
+#[cfg(not(target_arch = "wasm32"))]
+#[allow(unused_imports)]
+use rdev::display_size;
 
 #[derive(Clone, Copy, Debug)]
 pub struct SimpleRng {
@@ -176,6 +176,7 @@ pub trait RectExt {
     fn clip_by(&mut self, d: f32) -> &mut mcp::Rect;
 
     fn update_pos_n_size(&mut self, x: f32, y: f32, w: f32, h: f32);
+    fn move_to_ex(&mut self, dx: f32, dy: f32);
 
     fn render(&self);
 }
@@ -209,6 +210,11 @@ impl RectExt for mcp::Rect {
         self.y = y;
         self.w = w;
         self.h = h;
+    }
+
+    fn move_to_ex(&mut self, dx: f32, dy: f32) {
+        self.x += dx;
+        self.y += dy;
     }
 
     fn render(&self) {
@@ -381,20 +387,22 @@ impl Card {
         }
     }
 
-    pub fn update(&mut self, mouse: &mut Mouse, ind: usize) {
+    pub fn update(&mut self, mouse: &mut Mouse, ind: usize, res: bool, id: usize) {
         let edge_margin = 10.0;
 
         let (mx, my) = mcp::mouse_position();
 
         if mcp::is_mouse_button_pressed(mcp::MouseButton::Left) {
-            let edge = mouse_near_edge(self.rect, mx, my, edge_margin);
-            if edge != ResizeEdge::None {
-                mouse.grab_it(Obj::Card(ind), Action::Resize(edge));
-                return;
+            if res {
+                let edge = mouse_near_edge(self.rect, mx, my, edge_margin);
+                if edge != ResizeEdge::None {
+                    mouse.grab_it(Obj::Hand(id, ind), Action::Resize(edge));
+                    return;
+                }
             }
 
             if self.rect.contains(mcp::Vec2::new(mx, my)) {
-                mouse.grab_it(Obj::Card(ind), Action::Move);
+                mouse.grab_it(Obj::Hand(id, ind), Action::Move(None));
             }
         }
     }
@@ -403,8 +411,8 @@ impl Card {
         resize_rect(&mut self.rect, edge, dx, dy);
     }
 
-    fn move_to(&mut self, (mx, my): (f32, f32)) {
-        self.rect.move_to(mcp::Vec2::new(mx, my));
+    fn move_to(&mut self, (dx, dy): (f32, f32)) {
+        self.rect.move_to_ex(dx, dy);
     }
 }
 
@@ -666,7 +674,7 @@ fn handle_grid_click(grid: &mut Vec<bool>, cols: usize, rows: usize, cell_size: 
 
 fn window_conf() -> mcp::Conf {
     let default_win_size = (800, 600);
-    let (width, height) = default_win_size;
+    let (mut width, mut height) = default_win_size;
     // (width, height) = display_size().unwrap_or(default_win_size);
     println!("width: {} heigt: {}", width, height);
 
@@ -680,71 +688,137 @@ fn window_conf() -> mcp::Conf {
     }
 }
 
-enum Tern {
-    Player1,
-    Player2,
+// #[repr(u8)]
+// #[derive(Debug, Clone, Copy)]
+// enum PlayerId {
+//     Player1,
+//     Player2,
+// }
+
+static mut PLAYER_UID: usize = 0;
+pub fn new_player_uid() -> usize {
+    unsafe { PLAYER_UID += 1 }
+    unsafe { PLAYER_UID - 1 }
+}
+
+struct HealthBar {
+    health: u16,
+    rect: mcp::Rect,
+}
+
+impl HealthBar {
+    pub fn new(health: u16, plane: mcp::Rect) -> Self {
+        Self {
+            health: health,
+            rect: plane,
+        }
+    }
+    pub fn render(&self, font: &mcp::Font) {
+        self.rect.render();
+        let p = self.rect.center();
+
+        mcp::draw_circle_lines(p.x, p.y, 50.0, 20.0, DEFAULT_BG_COLOR);
+
+        let h = 60.0;
+        mcp::draw_triangle(
+            mcp::Vec2::new(self.rect.x - h, p.y),
+            mcp::Vec2::new(self.rect.x, self.rect.y),
+            mcp::Vec2::new(self.rect.x, self.rect.bottom()),
+            mcp::BROWN,
+        );
+        mcp::draw_triangle(
+            mcp::Vec2::new(self.rect.right() + h, p.y),
+            mcp::Vec2::new(self.rect.right(), self.rect.y),
+            mcp::Vec2::new(self.rect.right(), self.rect.bottom()),
+            mcp::BROWN,
+        );
+
+        let offset = 20.0;
+        mcp::draw_rectangle(
+            self.rect.x,
+            self.rect.y + offset / 2.0,
+            self.rect.w,
+            self.rect.h - offset,
+            mcp::BROWN,
+        );
+    }
 }
 
 pub struct Player {
+    id: usize,
     hand: Vec<Card>,
+    arena: Vec<Card>,
     library: Vec<Card>,
     graveyard: Vec<Card>,
 
     arena_rect: mcp::Rect,
     hand_rect: mcp::Rect,
     def_card_size: (f32, f32),
+
+    health_bar: HealthBar,
 }
 
 impl Player {
     pub fn new(col: &CardCollection) -> Self {
         let mut library = col.get_random(20);
-        for c in &library {
-            debug!("{}", c);
-        }
+        // for c in &library {
+        //     debug!("{}", c);
+        // }
 
-        let hand = library.drain(library.len().saturating_sub(3)..).collect();
+        let hand_card_count = 7;
+        let mut hand: Vec<Card> = library
+            .drain(library.len().saturating_sub(hand_card_count)..)
+            .collect();
 
-        println!("---------------------------");
+        // println!("---------------------------");
+        //
+        // for c in &hand {
+        //     debug!("{}", c);
+        // }
 
-        for c in &hand {
-            debug!("{}", c);
-        }
-
-        let arena_rect = SizeRatio::new(0.2, 0.52, 0.6, 0.18);
-        let hand_rect = SizeRatio::new(0.1, 0.78, 0.8, 0.18);
+        let arena_rect = SizeRatio::new(0.2, 0.52, 0.6, 0.15);
+        let hand_rect = SizeRatio::new(0.1, 0.75, 0.8, 0.15);
         let def_card_size = (hand_rect.w / 7.0, hand_rect.h);
 
-        let mut ret = Self {
+        Player::update_card_position_n_size(&mut hand, def_card_size, hand_rect);
+
+        let default_health = 20;
+        let health_bar_plane = SizeRatio::new(0.2, 0.92, 0.6, 0.08);
+        let health_bar = HealthBar::new(default_health, health_bar_plane);
+
+        let ret = Self {
+            id: new_player_uid(),
             hand,
             library,
+            arena: Vec::new(),
             graveyard: Vec::new(),
             def_card_size,
 
             arena_rect,
             hand_rect,
-        };
 
-        ret.update_card_position();
+            health_bar,
+        };
 
         ret
     }
 
-    pub fn update_card_position(&mut self) {
-        let x = self.hand_rect.x;
+    pub fn update_card_position_n_size(
+        cards: &mut Vec<Card>,
+        def_card_size: (f32, f32),
+        plane: mcp::Rect,
+    ) {
+        let x = plane.x;
         let offset = 2.0;
 
-        for (ind, card) in self.hand.iter_mut().enumerate() {
-            let px = x + ind as f32 * (self.def_card_size.0 + offset);
-            card.rect.update_pos_n_size(
-                px,
-                self.hand_rect.y,
-                self.def_card_size.0,
-                self.def_card_size.1,
-            );
+        for (ind, card) in cards.iter_mut().enumerate() {
+            let px = x + ind as f32 * (def_card_size.0 + offset);
+            card.rect
+                .update_pos_n_size(px, plane.y, def_card_size.0, def_card_size.1);
         }
     }
 
-    fn render_arena(&self, font: &mcp::Font) {
+    fn render_arena(&mut self, font: &mcp::Font) {
         self.arena_rect.render();
 
         let arena_text = "Arena";
@@ -762,22 +836,58 @@ impl Player {
                 ..Default::default()
             },
         );
+
+        self.arena
+            .iter()
+            .for_each(|card| Renderer::render_card_minimal(card, font));
+
+        // for card in self.hand.iter() {
+        //     Renderer::render_card_minimal(&card, font);
+        // }
     }
 
-    pub fn render_hand(&self, font: &mcp::Font) {
+    pub fn render_hand(&mut self, font: &mcp::Font) {
         self.hand_rect.render();
-        self.render_arena(font);
 
         for card in self.hand.iter() {
             Renderer::render_card_minimal(&card, font);
         }
     }
+
+    pub fn render(&mut self, font: &mcp::Font) {
+        self.health_bar.render(font);
+        self.render_arena(font);
+        self.render_hand(font);
+    }
+
+    // fn cab<F>(callback: F, card: &mut Card)
+    // where
+    //     F: FnOnce(&mut Card),
+    // {
+    //     callback(card);
+    // }
+
+    pub fn on_un_grab(&mut self, card_ind: usize) {
+        let card = &mut self.hand[card_ind];
+
+        if card.rect.overlaps(&self.arena_rect) {
+            self.arena.push(self.hand.remove(card_ind));
+        }
+
+        Player::update_card_position_n_size(&mut self.arena, self.def_card_size, self.arena_rect);
+        Player::update_card_position_n_size(&mut self.hand, self.def_card_size, self.hand_rect);
+    }
+
+    pub fn update(&mut self, mouse: &mut Mouse) {
+        for (ind, card) in self.hand.iter_mut().enumerate() {
+            card.update(mouse, ind, false, self.id);
+        }
+    }
 }
 
 pub struct Game {
-    player1: Player,
-    player2: Player,
-    turn: Tern,
+    players: Vec<Player>,
+    turn: usize,
 
     is_running: bool,
     card_collection: Vec<Card>,
@@ -840,6 +950,24 @@ fn generate_card_collection() -> Vec<Card> {
         def_rect,
     ));
 
+    col.push(Card::new(
+        img.clone(),
+        "Hydra",
+        "do nothing",
+        0,
+        CardType::Attack,
+        def_rect,
+    ));
+
+    col.push(Card::new(
+        img.clone(),
+        "Rat",
+        "do eating",
+        0,
+        CardType::Attack,
+        def_rect,
+    ));
+
     col
 }
 
@@ -848,6 +976,8 @@ const FONT_PATH: &str = "public/assets/font/JetBrainsMono-Medium.ttf";
 
 #[cfg(target_arch = "wasm32")]
 const FONT_PATH: &str = "assets/font/JetBrainsMono-Medium.ttf";
+
+const DEFAULT_BG_COLOR: mcp::Color = mcp::Color::from_rgba(31, 31, 31, 255);
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -881,30 +1011,19 @@ async fn main() {
     let mut mouse = Mouse::new();
 
     loop {
-        mcp::clear_background(mcp::Color::from_rgba(31, 31, 31, 255));
+        mcp::clear_background(DEFAULT_BG_COLOR);
 
         if should_quit() {
             break;
         }
 
-        // Window::new(hash!(), vec2(20., 20.), vec2(420., 400.))
-        //     .label("Particles")
-        //     .close_button(true)
-        //     .ui(&mut root_ui(), |ui| {});
-
         //update
-        // for (ind, card) in cards.iter_mut().enumerate() {
-        //     card.update(&mut mouse, ind);
-        // }
-        //
-        // for card in cards.iter() {
-        //     Renderer::render_card(&card, &font);
-        // }
+        player1.update(&mut mouse);
 
-        player1.render_hand(&font);
+        player1.render(&font);
 
         let mouse_contex = MouseContex {
-            cards: Some(&mut cards),
+            players: &mut vec![&mut player1],
         };
 
         mouse.update(mouse_contex);
@@ -913,19 +1032,28 @@ async fn main() {
     }
 }
 
-#[derive(Clone, Copy)]
+fn modify<F>(callback: F, card: &mut Card)
+where
+    F: FnOnce(&mut Card),
+{
+    callback(card);
+}
+
+pub type CallBack = Box<dyn FnOnce(&mut Card)>;
+
+// #[derive(Clone, Copy)]
 pub enum Action {
     Resize(ResizeEdge),
-    Move,
+    Move(Option<CallBack>),
 }
 
 #[derive(Clone, Copy)]
 pub enum Obj {
-    Card(usize),
+    Hand(usize, usize),
 }
 
 pub struct MouseContex<'a> {
-    cards: Option<&'a mut Vec<Card>>,
+    players: &'a mut Vec<&'a mut Player>,
 }
 
 trait Grabbable {
@@ -948,18 +1076,37 @@ impl Mouse {
     pub fn update(&mut self, ctx: MouseContex) {
         let delta = self.delta();
 
-        if let Some((grab, act)) = self.grab {
-            match (grab, ctx.cards) {
-                (Obj::Card(ind), Some(cards)) => match act {
-                    Action::Resize(edge) => cards[ind].resize(delta, edge),
-                    Action::Move => cards[ind].move_to(mcp::mouse_position()),
-                },
-                (_, _) => {}
-            }
-        }
+        // let mut cab = None;
 
         if mcp::is_mouse_button_released(mcp::MouseButton::Left) {
+            if let Some((grab, act)) = &mut self.grab {
+                match *grab {
+                    Obj::Hand(id, ind) => {
+                        let player = &mut ctx.players[id];
+                        // let card = &mut player.hand[ind];
+                        match act {
+                            Action::Move(_) => player.on_un_grab(ind),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
             self.grab = None;
+            self.last_pos = mcp::mouse_position();
+            return;
+        }
+
+        if let Some((grab, act)) = &self.grab {
+            match *grab {
+                Obj::Hand(id, ind) => {
+                    let card = &mut ctx.players[id].hand[ind];
+                    match act {
+                        Action::Resize(edge) => card.resize(delta, *edge),
+                        Action::Move(_) => card.move_to(delta),
+                    }
+                }
+            }
         }
 
         self.last_pos = mcp::mouse_position();
