@@ -1,12 +1,7 @@
 #![allow(dead_code)]
 
-use macroquad::prelude::coroutines::tweens::linear;
-//use macroquad::prelude::{camera::mouse};
-use macroquad::prelude::{self as mcp, debug};
-//use std::{fmt, hint::select_unpredictable};
-// use rand::seq::SliceRandom;
-// use rand::{Rng, distr::Uniform, rng};
-use std::{default, fmt}; // for choose()
+use macroquad::prelude as mcp;
+use std::fmt; // for choose()
 
 //use macroquad::hash;
 //use macroquad::ui::root_ui;
@@ -397,6 +392,7 @@ impl Card {
                 let edge = mouse_near_edge(self.rect, mx, my, edge_margin);
                 if edge != ResizeEdge::None {
                     mouse.grab_it(Obj::Hand(id, ind), Action::Resize(edge));
+
                     return;
                 }
             }
@@ -741,6 +737,190 @@ impl HealthBar {
             self.rect.h - offset,
             mcp::BROWN,
         );
+
+        let font_size = 20.0;
+        // let dim =
+        mcp::draw_text(&self.health.to_string(), p.x, p.y, font_size, mcp::WHITE);
+
+        // mcp::draw_arc(300.0, 200.0, 20, 60., 0.0, 20.0, 180.0, mcp::WHITE);
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Vec2 {
+    x: f32,
+    y: f32,
+}
+
+pub struct Rect {
+    pub pos: mcp::Vec2,
+    pub size: mcp::Vec2,
+    pub color: mcp::Color,
+}
+
+impl Drawable for Rect {
+    fn draw(&self, center: Vec2, rotation: f32) {
+        mcp::draw_rectangle_ex(
+            center.x,
+            center.y,
+            self.size.x,
+            self.size.y,
+            mcp::DrawRectangleParams {
+                rotation,
+                color: self.color,
+                offset: mcp::Vec2::new(0.5, 0.5),
+                ..Default::default()
+            },
+        );
+    }
+}
+
+pub struct TextObj<'a> {
+    pub pos: mcp::Vec2,
+    pub dim: mcp::TextDimensions,
+    pub text: String,
+    pub color: mcp::Color,
+    pub font: Option<&'a mcp::Font>,
+    pub font_size: u16,
+}
+
+impl<'a> TextObj<'a> {
+    pub fn new(
+        pos: mcp::Vec2,
+        text: String,
+        font: Option<&'a mcp::Font>,
+        font_size: u16,
+        color: mcp::Color,
+    ) -> Self {
+        let font_scale = 1.0;
+        let dim = mcp::measure_text(&text, font, font_size, font_scale);
+        Self {
+            pos,
+            dim,
+            text,
+            color,
+            font,
+            font_size,
+        }
+    }
+}
+
+impl Drawable for TextObj<'_> {
+    fn draw(&self, center: Vec2, rotation: f32) {
+        mcp::draw_text_ex(
+            &self.text,
+            center.x - self.pos.x - self.dim.width / 2.0,
+            center.y - self.pos.y + self.dim.height / 2.0,
+            mcp::TextParams {
+                font: self.font,
+                font_size: self.font_size,
+                color: self.color,
+                rotation,
+                ..Default::default()
+            },
+        );
+    }
+}
+
+pub fn draw_text_ex(text: &str, x: f32, y: f32, params: mcp::TextParams) {
+    if text.is_empty() {
+        return;
+    }
+
+    let font = params.font.unwrap();
+
+    let dpi_scaling = mcp::screen_dpi_scale();
+
+    let rot = params.rotation;
+    let font_scale_x = params.font_scale * params.font_scale_aspect;
+    let font_scale_y = params.font_scale;
+    let font_size = (params.font_size as f32 * dpi_scaling).ceil() as u16;
+
+    let mut total_width = 0.0;
+    let mut max_offset_y = f32::MIN;
+    let mut min_offset_y = f32::MAX;
+
+    for character in text.chars() {
+        if !font.contains(character, font_size) {
+            font.cache_glyph(character, font_size);
+        }
+
+        let char_data = &font.characters.lock().unwrap()[&(character, font_size)];
+        let offset_x = char_data.offset_x as f32 * font_scale_x;
+        let offset_y = char_data.offset_y as f32 * font_scale_y;
+
+        let mut atlas = font.atlas.lock().unwrap();
+        let glyph = atlas.get(char_data.sprite).unwrap().rect;
+        let glyph_scaled_h = glyph.h * font_scale_y;
+
+        min_offset_y = min_offset_y.min(offset_y);
+        max_offset_y = max_offset_y.max(glyph_scaled_h + offset_y);
+
+        let rot_cos = rot.cos();
+        let rot_sin = rot.sin();
+        let dest_x = (offset_x + total_width) * rot_cos + (glyph_scaled_h + offset_y) * rot_sin;
+        let dest_y = (offset_x + total_width) * rot_sin + (-glyph_scaled_h - offset_y) * rot_cos;
+
+        let dest = Rect::new(
+            dest_x / dpi_scaling + x,
+            dest_y / dpi_scaling + y,
+            glyph.w / dpi_scaling * font_scale_x,
+            glyph.h / dpi_scaling * font_scale_y,
+        );
+
+        total_width += char_data.advance * font_scale_x;
+
+        mcp::draw_texture_ex(
+            &mcp::Texture2D {
+                texture: mcp::TextureHandle::Unmanaged(atlas.texture()),
+            },
+            dest.x,
+            dest.y,
+            params.color,
+            mcp::DrawTextureParams {
+                dest_size: Some(mcp::vec2(dest.w, dest.h)),
+                source: Some(glyph),
+                rotation: rot,
+                pivot: Some(mcp::vec2(dest.x, dest.y)),
+                ..Default::default()
+            },
+        );
+    }
+}
+
+pub trait Drawable {
+    fn draw(&self, center: Vec2, rotation: f32);
+}
+
+pub struct Canvas<'a> {
+    origin: Vec2,
+    rotation: f32,
+    drawables: Vec<Box<dyn Drawable + 'a>>,
+}
+
+impl<'a> Canvas<'a> {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self {
+            origin: Vec2 { x, y },
+            rotation: 0.0,
+            drawables: vec![],
+        }
+    }
+
+    /// angle in degree
+    pub fn rotate(&mut self, angle: f32) {
+        let ang = (3.1416 / 180.0) * angle;
+        self.rotation += ang;
+    }
+
+    pub fn add(&mut self, obj: impl Drawable + 'a) {
+        self.drawables.push(Box::new(obj));
+    }
+
+    pub fn draw(&mut self) {
+        for d in self.drawables.iter() {
+            d.draw(self.origin, self.rotation);
+        }
     }
 }
 
@@ -1010,6 +1190,21 @@ async fn main() {
 
     let mut mouse = Mouse::new();
 
+    let mut canvas = Canvas::new(100.0, 100.0);
+    canvas.add(Rect {
+        pos: mcp::Vec2::new(0.0, 0.0),
+        size: mcp::Vec2::new(100.0, 100.0),
+        color: mcp::WHITE,
+    });
+
+    canvas.add(TextObj::new(
+        mcp::Vec2::new(0.0, 0.0),
+        "Hi there".into(),
+        Some(&font),
+        20,
+        mcp::BLUE,
+    ));
+
     loop {
         mcp::clear_background(DEFAULT_BG_COLOR);
 
@@ -1021,6 +1216,10 @@ async fn main() {
         player1.update(&mut mouse);
 
         player1.render(&font);
+
+        canvas.draw();
+
+        // canvas.rotate(1.0);
 
         let mouse_contex = MouseContex {
             players: &mut vec![&mut player1],
