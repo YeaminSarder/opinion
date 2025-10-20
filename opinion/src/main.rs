@@ -738,7 +738,7 @@ impl HealthBar {
             mcp::BROWN,
         );
 
-        let font_size = 20.0;
+        let font_size = 40.0;
         // let dim =
         mcp::draw_text(&self.health.to_string(), p.x, p.y, font_size, mcp::WHITE);
 
@@ -821,72 +821,72 @@ impl Drawable for TextObj<'_> {
         );
     }
 }
-
-pub fn draw_text_ex(text: &str, x: f32, y: f32, params: mcp::TextParams) {
-    if text.is_empty() {
-        return;
-    }
-
-    let font = params.font.unwrap();
-
-    let dpi_scaling = mcp::screen_dpi_scale();
-
-    let rot = params.rotation;
-    let font_scale_x = params.font_scale * params.font_scale_aspect;
-    let font_scale_y = params.font_scale;
-    let font_size = (params.font_size as f32 * dpi_scaling).ceil() as u16;
-
-    let mut total_width = 0.0;
-    let mut max_offset_y = f32::MIN;
-    let mut min_offset_y = f32::MAX;
-
-    for character in text.chars() {
-        if !font.contains(character, font_size) {
-            font.cache_glyph(character, font_size);
-        }
-
-        let char_data = &font.characters.lock().unwrap()[&(character, font_size)];
-        let offset_x = char_data.offset_x as f32 * font_scale_x;
-        let offset_y = char_data.offset_y as f32 * font_scale_y;
-
-        let mut atlas = font.atlas.lock().unwrap();
-        let glyph = atlas.get(char_data.sprite).unwrap().rect;
-        let glyph_scaled_h = glyph.h * font_scale_y;
-
-        min_offset_y = min_offset_y.min(offset_y);
-        max_offset_y = max_offset_y.max(glyph_scaled_h + offset_y);
-
-        let rot_cos = rot.cos();
-        let rot_sin = rot.sin();
-        let dest_x = (offset_x + total_width) * rot_cos + (glyph_scaled_h + offset_y) * rot_sin;
-        let dest_y = (offset_x + total_width) * rot_sin + (-glyph_scaled_h - offset_y) * rot_cos;
-
-        let dest = Rect::new(
-            dest_x / dpi_scaling + x,
-            dest_y / dpi_scaling + y,
-            glyph.w / dpi_scaling * font_scale_x,
-            glyph.h / dpi_scaling * font_scale_y,
-        );
-
-        total_width += char_data.advance * font_scale_x;
-
-        mcp::draw_texture_ex(
-            &mcp::Texture2D {
-                texture: mcp::TextureHandle::Unmanaged(atlas.texture()),
-            },
-            dest.x,
-            dest.y,
-            params.color,
-            mcp::DrawTextureParams {
-                dest_size: Some(mcp::vec2(dest.w, dest.h)),
-                source: Some(glyph),
-                rotation: rot,
-                pivot: Some(mcp::vec2(dest.x, dest.y)),
-                ..Default::default()
-            },
-        );
-    }
-}
+//
+// pub fn draw_text_ex(text: &str, x: f32, y: f32, params: mcp::TextParams) {
+//     if text.is_empty() {
+//         return;
+//     }
+//
+//     let font = params.font.unwrap();
+//
+//     let dpi_scaling = mcp::screen_dpi_scale();
+//
+//     let rot = params.rotation;
+//     let font_scale_x = params.font_scale * params.font_scale_aspect;
+//     let font_scale_y = params.font_scale;
+//     let font_size = (params.font_size as f32 * dpi_scaling).ceil() as u16;
+//
+//     let mut total_width = 0.0;
+//     let mut max_offset_y = f32::MIN;
+//     let mut min_offset_y = f32::MAX;
+//
+//     for character in text.chars() {
+//         if !font.contains(character, font_size) {
+//             font.cache_glyph(character, font_size);
+//         }
+//
+//         let char_data = &font.characters.lock().unwrap()[&(character, font_size)];
+//         let offset_x = char_data.offset_x as f32 * font_scale_x;
+//         let offset_y = char_data.offset_y as f32 * font_scale_y;
+//
+//         let mut atlas = font.atlas.lock().unwrap();
+//         let glyph = atlas.get(char_data.sprite).unwrap().rect;
+//         let glyph_scaled_h = glyph.h * font_scale_y;
+//
+//         min_offset_y = min_offset_y.min(offset_y);
+//         max_offset_y = max_offset_y.max(glyph_scaled_h + offset_y);
+//
+//         let rot_cos = rot.cos();
+//         let rot_sin = rot.sin();
+//         let dest_x = (offset_x + total_width) * rot_cos + (glyph_scaled_h + offset_y) * rot_sin;
+//         let dest_y = (offset_x + total_width) * rot_sin + (-glyph_scaled_h - offset_y) * rot_cos;
+//
+//         let dest = Rect::new(
+//             dest_x / dpi_scaling + x,
+//             dest_y / dpi_scaling + y,
+//             glyph.w / dpi_scaling * font_scale_x,
+//             glyph.h / dpi_scaling * font_scale_y,
+//         );
+//
+//         total_width += char_data.advance * font_scale_x;
+//
+//         mcp::draw_texture_ex(
+//             &mcp::Texture2D {
+//                 texture: mcp::TextureHandle::Unmanaged(atlas.texture()),
+//             },
+//             dest.x,
+//             dest.y,
+//             params.color,
+//             mcp::DrawTextureParams {
+//                 dest_size: Some(mcp::vec2(dest.w, dest.h)),
+//                 source: Some(glyph),
+//                 rotation: rot,
+//                 pivot: Some(mcp::vec2(dest.x, dest.y)),
+//                 ..Default::default()
+//             },
+//         );
+//     }
+// }
 
 pub trait Drawable {
     fn draw(&self, center: Vec2, rotation: f32);
