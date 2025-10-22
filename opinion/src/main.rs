@@ -391,14 +391,14 @@ impl Card {
             if res {
                 let edge = mouse_near_edge(self.rect, mx, my, edge_margin);
                 if edge != ResizeEdge::None {
-                    mouse.grab_it(Obj::Hand(id, ind), Action::Resize(edge));
+                    mouse.grab_it(GrabObj::Hand(id, ind), Action::Resize(edge));
 
                     return;
                 }
             }
 
             if self.rect.contains(mcp::Vec2::new(mx, my)) {
-                mouse.grab_it(Obj::Hand(id, ind), Action::Move(None));
+                mouse.grab_it(GrabObj::Hand(id, ind), Action::Move(None));
             }
         }
     }
@@ -752,13 +752,13 @@ pub struct Vec2 {
     y: f32,
 }
 
-pub struct Rect {
+pub struct RectObj2 {
     pub pos: mcp::Vec2,
     pub size: mcp::Vec2,
     pub color: mcp::Color,
 }
 
-impl Drawable for Rect {
+impl Drawable for RectObj2 {
     fn draw(&self, center: Vec2, rotation: f32) {
         mcp::draw_rectangle_ex(
             center.x,
@@ -775,7 +775,7 @@ impl Drawable for Rect {
     }
 }
 
-pub struct TextObj<'a> {
+pub struct TextObj2<'a> {
     pub pos: mcp::Vec2,
     pub dim: mcp::TextDimensions,
     pub text: String,
@@ -784,7 +784,7 @@ pub struct TextObj<'a> {
     pub font_size: u16,
 }
 
-impl<'a> TextObj<'a> {
+impl<'a> TextObj2<'a> {
     pub fn new(
         pos: mcp::Vec2,
         text: String,
@@ -794,6 +794,7 @@ impl<'a> TextObj<'a> {
     ) -> Self {
         let font_scale = 1.0;
         let dim = mcp::measure_text(&text, font, font_size, font_scale);
+
         Self {
             pos,
             dim,
@@ -805,88 +806,73 @@ impl<'a> TextObj<'a> {
     }
 }
 
-impl Drawable for TextObj<'_> {
+struct Rect {
+    top_left: mcp::Vec2,
+    top_right: mcp::Vec2,
+    bottom_left: mcp::Vec2,
+    bottom_right: mcp::Vec2,
+}
+
+fn take_xy(vec: mcp::Vec4) -> mcp::Vec2 {
+    mcp::Vec2::new(vec.x, vec.y)
+}
+
+fn calcurate_rect_rotation(
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    rotation: f32,
+    offset: mcp::Vec2,
+) -> Rect {
+    let transform_matrix = mcp::Mat4::from_translation(mcp::vec3(x, y, 0.0))
+        * mcp::Mat4::from_axis_angle(mcp::vec3(0.0, 0.0, 1.0), rotation)
+        * mcp::Mat4::from_scale(mcp::vec3(w, h, 1.0));
+
+    let v = [
+        transform_matrix * mcp::vec4(0.0 - offset.x, 0.0 - offset.y, 0.0, 1.0),
+        transform_matrix * mcp::vec4(0.0 - offset.x, 1.0 - offset.y, 0.0, 1.0),
+        transform_matrix * mcp::vec4(1.0 - offset.x, 1.0 - offset.y, 0.0, 1.0),
+        transform_matrix * mcp::vec4(1.0 - offset.x, 0.0 - offset.y, 0.0, 1.0),
+    ];
+
+    Rect {
+        top_left: take_xy(v[0]),
+        top_right: take_xy(v[3]),
+        bottom_left: take_xy(v[1]),
+        bottom_right: take_xy(v[2]),
+    }
+}
+
+impl Drawable for TextObj2<'_> {
     fn draw(&self, center: Vec2, rotation: f32) {
+        let px = center.x - self.dim.width / 2.0;
+        let py = center.y - self.dim.height / 2.0;
+
+        let rot = calcurate_rect_rotation(
+            px,
+            py,
+            self.dim.width,
+            self.dim.height,
+            rotation,
+            mcp::Vec2::new(0.5, 0.5),
+        )
+        .bottom_left;
+
         mcp::draw_text_ex(
             &self.text,
-            center.x - self.pos.x - self.dim.width / 2.0,
-            center.y - self.pos.y + self.dim.height / 2.0,
+            rot.x,
+            rot.y,
             mcp::TextParams {
                 font: self.font,
                 font_size: self.font_size,
                 color: self.color,
-                rotation,
+                rotation: rotation,
                 ..Default::default()
             },
         );
     }
 }
-//
-// pub fn draw_text_ex(text: &str, x: f32, y: f32, params: mcp::TextParams) {
-//     if text.is_empty() {
-//         return;
-//     }
-//
-//     let font = params.font.unwrap();
-//
-//     let dpi_scaling = mcp::screen_dpi_scale();
-//
-//     let rot = params.rotation;
-//     let font_scale_x = params.font_scale * params.font_scale_aspect;
-//     let font_scale_y = params.font_scale;
-//     let font_size = (params.font_size as f32 * dpi_scaling).ceil() as u16;
-//
-//     let mut total_width = 0.0;
-//     let mut max_offset_y = f32::MIN;
-//     let mut min_offset_y = f32::MAX;
-//
-//     for character in text.chars() {
-//         if !font.contains(character, font_size) {
-//             font.cache_glyph(character, font_size);
-//         }
-//
-//         let char_data = &font.characters.lock().unwrap()[&(character, font_size)];
-//         let offset_x = char_data.offset_x as f32 * font_scale_x;
-//         let offset_y = char_data.offset_y as f32 * font_scale_y;
-//
-//         let mut atlas = font.atlas.lock().unwrap();
-//         let glyph = atlas.get(char_data.sprite).unwrap().rect;
-//         let glyph_scaled_h = glyph.h * font_scale_y;
-//
-//         min_offset_y = min_offset_y.min(offset_y);
-//         max_offset_y = max_offset_y.max(glyph_scaled_h + offset_y);
-//
-//         let rot_cos = rot.cos();
-//         let rot_sin = rot.sin();
-//         let dest_x = (offset_x + total_width) * rot_cos + (glyph_scaled_h + offset_y) * rot_sin;
-//         let dest_y = (offset_x + total_width) * rot_sin + (-glyph_scaled_h - offset_y) * rot_cos;
-//
-//         let dest = Rect::new(
-//             dest_x / dpi_scaling + x,
-//             dest_y / dpi_scaling + y,
-//             glyph.w / dpi_scaling * font_scale_x,
-//             glyph.h / dpi_scaling * font_scale_y,
-//         );
-//
-//         total_width += char_data.advance * font_scale_x;
-//
-//         mcp::draw_texture_ex(
-//             &mcp::Texture2D {
-//                 texture: mcp::TextureHandle::Unmanaged(atlas.texture()),
-//             },
-//             dest.x,
-//             dest.y,
-//             params.color,
-//             mcp::DrawTextureParams {
-//                 dest_size: Some(mcp::vec2(dest.w, dest.h)),
-//                 source: Some(glyph),
-//                 rotation: rot,
-//                 pivot: Some(mcp::vec2(dest.x, dest.y)),
-//                 ..Default::default()
-//             },
-//         );
-//     }
-// }
 
 pub trait Drawable {
     fn draw(&self, center: Vec2, rotation: f32);
@@ -909,8 +895,7 @@ impl<'a> Canvas<'a> {
 
     /// angle in degree
     pub fn rotate(&mut self, angle: f32) {
-        let ang = (3.1416 / 180.0) * angle;
-        self.rotation += ang;
+        self.rotation += angle.to_radians();
     }
 
     pub fn add(&mut self, obj: impl Drawable + 'a) {
@@ -921,6 +906,196 @@ impl<'a> Canvas<'a> {
         for d in self.drawables.iter() {
             d.draw(self.origin, self.rotation);
         }
+    }
+}
+
+pub struct RectObj {
+    pos: mcp::Vec2,
+    size: mcp::Vec2,
+    color: mcp::Color,
+    offset: mcp::Vec2,
+}
+
+impl Default for RectObj {
+    fn default() -> Self {
+        Self {
+            pos: mcp::vec2(0.0, 0.0),
+            size: mcp::vec2(100.0, 100.0),
+            offset: mcp::vec2(0.5, 0.5),
+            color: mcp::WHITE,
+        }
+    }
+}
+
+pub struct TextObj<'a> {
+    pub pos: mcp::Vec2,
+    pub dim: mcp::TextDimensions,
+    pub text: String,
+    pub color: mcp::Color,
+    pub font: Option<&'a mcp::Font>,
+    pub font_size: u16,
+    offset: mcp::Vec2,
+}
+
+impl<'a> Default for TextObj<'a> {
+    fn default() -> Self {
+        let font_size = 24;
+        let dim = mcp::measure_text("Hello, World!", None, font_size, 1.0);
+        Self {
+            text: "Hello, World!".into(),
+            dim,
+            pos: mcp::vec2(0.0, 0.0),
+            offset: mcp::vec2(0.5, 0.5),
+            color: mcp::WHITE,
+            font: None,
+            font_size,
+        }
+    }
+}
+
+impl<'a> TextObj<'a> {
+    pub fn new(
+        pos: mcp::Vec2,
+        text: String,
+        font: Option<&'a mcp::Font>,
+        font_size: u16,
+        offset: mcp::Vec2,
+        color: mcp::Color,
+    ) -> Self {
+        let font_scale = 1.0;
+        let dim = mcp::measure_text(&text, font, font_size, font_scale);
+
+        Self {
+            pos,
+            dim,
+            text,
+            color,
+            font,
+            offset,
+            font_size,
+        }
+    }
+}
+
+pub struct TriangleObj {
+    p1: mcp::Vec2,
+    p2: mcp::Vec2,
+    p3: mcp::Vec2,
+    center: mcp::Vec2,
+    color: mcp::Color,
+}
+
+pub enum Obj<'a> {
+    Rect(RectObj),
+    Text(TextObj<'a>),
+    Triangle(TriangleObj),
+}
+
+pub struct ObjGroup<'a> {
+    center: mcp::Vec2,
+    rotation: f32,
+    objs: Vec<Obj<'a>>,
+}
+
+impl<'a> ObjGroup<'a> {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self {
+            center: mcp::Vec2 { x, y },
+            rotation: 0.0,
+            objs: vec![],
+        }
+    }
+
+    /// angle in degree
+    pub fn rotate(&mut self, angle: f32) {
+        self.rotation += angle.to_radians();
+    }
+
+    // Accept anything that can convert into Obj<'a>
+    pub fn add<O>(&mut self, obj: O)
+    where
+        O: Into<Obj<'a>>,
+    {
+        self.objs.push(obj.into());
+    }
+
+    pub fn draw(&self) {
+        for obj in &self.objs {
+            match obj {
+                Obj::Rect(rect) => self.draw_rect(rect),
+                Obj::Text(text) => self.draw_text(text),
+                Obj::Triangle(triangle) => self.draw_triangle(triangle),
+            }
+        }
+    }
+
+    fn draw_triangle(&self, triangle: &TriangleObj) {
+        let center = self.center + triangle.center;
+
+        let v1 = center + triangle.p1;
+        let v2 = center + triangle.p2;
+        let v3 = center + triangle.p3;
+
+        mcp::draw_triangle(v1, v2, v3, triangle.color);
+    }
+
+    fn draw_rect(&self, rect: &RectObj) {
+        mcp::draw_rectangle_ex(
+            self.center.x,
+            self.center.y,
+            rect.size.x,
+            rect.size.y,
+            mcp::DrawRectangleParams {
+                rotation: self.rotation,
+                color: rect.color,
+                offset: rect.offset,
+                ..Default::default()
+            },
+        );
+    }
+
+    fn draw_text(&self, text: &TextObj) {
+        let rot = calcurate_rect_rotation(
+            self.center.x,
+            self.center.y,
+            text.dim.width,
+            text.dim.height,
+            self.rotation,
+            text.offset,
+        )
+        .bottom_left;
+
+        mcp::draw_text_ex(
+            &text.text,
+            rot.x,
+            rot.y,
+            mcp::TextParams {
+                font: text.font,
+                font_size: text.font_size,
+                color: text.color,
+                rotation: self.rotation,
+                ..Default::default()
+            },
+        );
+    }
+}
+
+// Implement conversions from inner types to Obj
+impl<'a> From<RectObj> for Obj<'a> {
+    fn from(r: RectObj) -> Self {
+        Obj::Rect(r)
+    }
+}
+
+impl<'a> From<TriangleObj> for Obj<'a> {
+    fn from(t: TriangleObj) -> Self {
+        Obj::Triangle(t)
+    }
+}
+
+impl<'a> From<TextObj<'a>> for Obj<'a> {
+    fn from(t: TextObj<'a>) -> Self {
+        Obj::Text(t)
     }
 }
 
@@ -1039,13 +1214,6 @@ impl Player {
         self.render_arena(font);
         self.render_hand(font);
     }
-
-    // fn cab<F>(callback: F, card: &mut Card)
-    // where
-    //     F: FnOnce(&mut Card),
-    // {
-    //     callback(card);
-    // }
 
     pub fn on_un_grab(&mut self, card_ind: usize) {
         let card = &mut self.hand[card_ind];
@@ -1191,19 +1359,44 @@ async fn main() {
     let mut mouse = Mouse::new();
 
     let mut canvas = Canvas::new(100.0, 100.0);
-    canvas.add(Rect {
+    canvas.add(RectObj2 {
         pos: mcp::Vec2::new(0.0, 0.0),
-        size: mcp::Vec2::new(100.0, 100.0),
+        size: mcp::Vec2::new(50.0, 50.0),
         color: mcp::WHITE,
     });
 
-    canvas.add(TextObj::new(
+    canvas.add(TextObj2::new(
         mcp::Vec2::new(0.0, 0.0),
         "Hi there".into(),
         Some(&font),
         20,
         mcp::BLUE,
     ));
+
+    let mut group = ObjGroup::new(300.0, 200.0);
+    group.add(RectObj {
+        pos: mcp::Vec2::new(0.0, 0.0),
+        size: mcp::Vec2::new(100.0, 100.0),
+        color: mcp::WHITE,
+        ..Default::default()
+    });
+
+    group.add(TextObj::new(
+        mcp::vec2(0.0, 0.0),
+        "hi there".into(),
+        Some(&font),
+        24,
+        mcp::vec2(0.5, 0.5),
+        mcp::BLUE,
+    ));
+
+    group.add(TriangleObj {
+        center: mcp::vec2(0.0, 0.0),
+        p1: mcp::vec2(50.0, -50.0),
+        p2: mcp::vec2(50.0, 50.0),
+        p3: mcp::vec2(-50.0, 0.0),
+        color: mcp::BROWN,
+    });
 
     loop {
         mcp::clear_background(DEFAULT_BG_COLOR);
@@ -1218,8 +1411,10 @@ async fn main() {
         player1.render(&font);
 
         canvas.draw();
+        canvas.rotate(1.0);
 
-        // canvas.rotate(1.0);
+        group.draw();
+        group.rotate(1.0);
 
         let mouse_contex = MouseContex {
             players: &mut vec![&mut player1],
@@ -1247,7 +1442,7 @@ pub enum Action {
 }
 
 #[derive(Clone, Copy)]
-pub enum Obj {
+pub enum GrabObj {
     Hand(usize, usize),
 }
 
@@ -1261,7 +1456,7 @@ trait Grabbable {
 
 pub struct Mouse {
     last_pos: (f32, f32),
-    grab: Option<(Obj, Action)>,
+    grab: Option<(GrabObj, Action)>,
 }
 
 impl Mouse {
@@ -1280,7 +1475,7 @@ impl Mouse {
         if mcp::is_mouse_button_released(mcp::MouseButton::Left) {
             if let Some((grab, act)) = &mut self.grab {
                 match *grab {
-                    Obj::Hand(id, ind) => {
+                    GrabObj::Hand(id, ind) => {
                         let player = &mut ctx.players[id];
                         // let card = &mut player.hand[ind];
                         match act {
@@ -1298,7 +1493,7 @@ impl Mouse {
 
         if let Some((grab, act)) = &self.grab {
             match *grab {
-                Obj::Hand(id, ind) => {
+                GrabObj::Hand(id, ind) => {
                     let card = &mut ctx.players[id].hand[ind];
                     match act {
                         Action::Resize(edge) => card.resize(delta, *edge),
@@ -1319,7 +1514,7 @@ impl Mouse {
         (dx, dy)
     }
 
-    pub fn grab_it(&mut self, obj: Obj, act: Action) -> bool {
+    pub fn grab_it(&mut self, obj: GrabObj, act: Action) -> bool {
         if self.grab.is_some() {
             return false;
         }
