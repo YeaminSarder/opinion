@@ -981,6 +981,29 @@ const DEFAULT_BG_COLOR: mcp::Color = mcp::Color::from_rgba(31, 31, 31, 255);
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    let gl = unsafe {mcp::get_internal_gl().quad_gl};
+    let fragment_shader = DEFAULT_FRAGMENT_SHADER.to_string(); // staticly defined at end of file
+    let vertex_shader = DEFAULT_VERTEX_SHADER.to_string();
+
+    let pipeline_params = mcp::PipelineParams {
+        depth_write: true,
+        depth_test: mcp::Comparison::LessOrEqual,
+        ..Default::default()
+    };
+
+    let material = mcp::load_material(
+        mcp::ShaderSource::Glsl {
+            vertex: &vertex_shader,
+            fragment: &fragment_shader,
+        },
+        mcp::MaterialParams {
+            pipeline_params,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    
+    
     let card_width = SizeRatio::get_x(0.4);
     let card_height = SizeRatio::get_y(0.6);
 
@@ -1009,7 +1032,12 @@ async fn main() {
     let font = mcp::load_ttf_font(FONT_PATH).await.unwrap();
 
     let mut mouse = Mouse::new();
-
+    mcp::set_camera(&mcp::Camera3D {
+            position: mcp::vec3(20.,20., 20.),
+            up: mcp::vec3(0., 0., 1.),
+            target: mcp::vec3(0., 0., 0.),
+            ..Default::default()
+        });
     loop {
         mcp::clear_background(DEFAULT_BG_COLOR);
 
@@ -1021,6 +1049,12 @@ async fn main() {
         player1.update(&mut mouse);
 
         player1.render(&font);
+
+	// drawing rotating cube;
+	gl.push_model_matrix(mcp::Mat4::from_rotation_z(mcp::get_time() as f32));
+	mcp::gl_use_material(&material);
+	mcp::draw_cube(mcp::vec3(0f32, 0f32, 0f32), mcp::vec3(5f32,5f32,5f32), None, mcp::WHITE);
+	gl.pop_model_matrix();
 
         let mouse_contex = MouseContex {
             players: &mut vec![&mut player1],
@@ -1129,3 +1163,36 @@ impl Mouse {
         true
     }
 }
+
+
+const DEFAULT_FRAGMENT_SHADER: &'static str = "#version 100
+precision lowp float;
+
+varying vec2 uv;
+
+//uniform sampler2D Texture;
+
+
+void main() {
+    gl_FragColor = vec4(uv,0.,1.); //texture2D(Texture, uv);
+}
+";
+
+const DEFAULT_VERTEX_SHADER: &'static str = "#version 100
+precision lowp float;
+
+attribute vec3 position;
+attribute vec2 texcoord;
+
+varying vec2 uv;
+
+uniform mat4 Model;
+uniform mat4 Projection;
+
+void main() {
+    gl_Position = Projection * Model * vec4(position, 1);
+    uv = texcoord;
+}
+";
+
+
