@@ -1,3 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["api","opinion"]
+members = ["api","opinion","opinion/obj_macros"]
+# exclude = [
+#     "opinion/obj_macros"
+# ]

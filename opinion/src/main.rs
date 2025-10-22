@@ -3,6 +3,8 @@
 use macroquad::prelude as mcp;
 use std::fmt; // for choose()
 
+use obj_macros::Obj;
+
 //use macroquad::hash;
 //use macroquad::ui::root_ui;
 //use macroquad::ui::widgets::Window;
@@ -909,11 +911,13 @@ impl<'a> Canvas<'a> {
     }
 }
 
+#[Obj]
 pub struct RectObj {
     pos: mcp::Vec2,
     size: mcp::Vec2,
     color: mcp::Color,
     offset: mcp::Vec2,
+    is_static: bool,
 }
 
 impl Default for RectObj {
@@ -923,10 +927,12 @@ impl Default for RectObj {
             size: mcp::vec2(100.0, 100.0),
             offset: mcp::vec2(0.5, 0.5),
             color: mcp::WHITE,
+            is_static: false,
         }
     }
 }
 
+#[Obj]
 pub struct TextObj<'a> {
     pub pos: mcp::Vec2,
     pub dim: mcp::TextDimensions,
@@ -935,6 +941,7 @@ pub struct TextObj<'a> {
     pub font: Option<&'a mcp::Font>,
     pub font_size: u16,
     offset: mcp::Vec2,
+    is_static: bool,
 }
 
 impl<'a> Default for TextObj<'a> {
@@ -949,6 +956,7 @@ impl<'a> Default for TextObj<'a> {
             color: mcp::WHITE,
             font: None,
             font_size,
+            is_static: false,
         }
     }
 }
@@ -961,6 +969,7 @@ impl<'a> TextObj<'a> {
         font_size: u16,
         offset: mcp::Vec2,
         color: mcp::Color,
+        is_static: bool,
     ) -> Self {
         let font_scale = 1.0;
         let dim = mcp::measure_text(&text, font, font_size, font_scale);
@@ -973,22 +982,35 @@ impl<'a> TextObj<'a> {
             font,
             offset,
             font_size,
+            is_static,
         }
     }
 }
 
+#[Obj]
 pub struct TriangleObj {
     p1: mcp::Vec2,
     p2: mcp::Vec2,
     p3: mcp::Vec2,
     center: mcp::Vec2,
     color: mcp::Color,
+    is_static: bool,
 }
 
 pub enum Obj<'a> {
     Rect(RectObj),
     Text(TextObj<'a>),
     Triangle(TriangleObj),
+}
+
+impl<'a> Obj<'a> {
+    fn is_static(&self) -> bool {
+        match self {
+            Obj::Rect(rect_obj) => rect_obj.is_static,
+            Obj::Text(text_obj) => text_obj.is_static,
+            Obj::Triangle(triangle_obj) => triangle_obj.is_static,
+        }
+    }
 }
 
 pub struct ObjGroup<'a> {
@@ -1029,20 +1051,37 @@ impl<'a> ObjGroup<'a> {
         }
     }
 
+    fn get_angle<O>(&self, obj: O) -> f32
+    where
+        O: Into<Obj<'a>>,
+    {
+        let ob: Obj<'a> = obj.into();
+        if ob.is_static() {
+            return 0.0;
+        }
+
+        self.rotation
+    }
+
     fn draw_triangle(&self, triangle: &TriangleObj) {
         let center = self.center + triangle.center;
 
-        let v1 = center + triangle.p1;
-        let v2 = center + triangle.p2;
-        let v3 = center + triangle.p3;
+        let angle = self.rotation;
+        // self.get_angle(*triangle);
 
-        mcp::draw_triangle(v1, v2, v3, triangle.color);
+        let rotation = mcp::Mat2::from_angle(angle);
+
+        let rv1 = center + triangle.center + rotation * triangle.p1;
+        let rv2 = center + triangle.center + rotation * triangle.p2;
+        let rv3 = center + triangle.center + rotation * triangle.p3;
+
+        mcp::draw_triangle(rv1, rv2, rv3, triangle.color);
     }
 
     fn draw_rect(&self, rect: &RectObj) {
         mcp::draw_rectangle_ex(
-            self.center.x,
-            self.center.y,
+            self.center.x + rect.pos.x,
+            self.center.y + rect.pos.y,
             rect.size.x,
             rect.size.y,
             mcp::DrawRectangleParams {
@@ -1056,8 +1095,8 @@ impl<'a> ObjGroup<'a> {
 
     fn draw_text(&self, text: &TextObj) {
         let rot = calcurate_rect_rotation(
-            self.center.x,
-            self.center.y,
+            self.center.x + text.pos.x,
+            self.center.y + text.pos.y,
             text.dim.width,
             text.dim.height,
             self.rotation,
@@ -1081,23 +1120,24 @@ impl<'a> ObjGroup<'a> {
 }
 
 // Implement conversions from inner types to Obj
-impl<'a> From<RectObj> for Obj<'a> {
-    fn from(r: RectObj) -> Self {
-        Obj::Rect(r)
-    }
-}
 
-impl<'a> From<TriangleObj> for Obj<'a> {
-    fn from(t: TriangleObj) -> Self {
-        Obj::Triangle(t)
-    }
-}
+// impl<'a> From<TriangleObj> for Obj<'a> {
+//     fn from(t: TriangleObj) -> Self {
+//         Obj::Triangle(t)
+//     }
+// }
 
-impl<'a> From<TextObj<'a>> for Obj<'a> {
-    fn from(t: TextObj<'a>) -> Self {
-        Obj::Text(t)
-    }
-}
+// impl<'a> From<RectObj> for Obj<'a> {
+//     fn from(r: RectObj) -> Self {
+//         Obj::Rect(r)
+//     }
+// }
+
+// impl<'a> From<TextObj<'a>> for Obj<'a> {
+//     fn from(t: TextObj<'a>) -> Self {
+//         Obj::Text(t)
+//     }
+// }
 
 pub struct Player {
     id: usize,
@@ -1375,27 +1415,30 @@ async fn main() {
 
     let mut group = ObjGroup::new(300.0, 200.0);
     group.add(RectObj {
-        pos: mcp::Vec2::new(0.0, 0.0),
+        pos: mcp::Vec2::new(-100.0, 0.0),
         size: mcp::Vec2::new(100.0, 100.0),
         color: mcp::WHITE,
+        is_static: true,
         ..Default::default()
     });
 
     group.add(TextObj::new(
-        mcp::vec2(0.0, 0.0),
+        mcp::vec2(50.0, 100.0),
         "hi there".into(),
         Some(&font),
         24,
         mcp::vec2(0.5, 0.5),
         mcp::BLUE,
+        true,
     ));
 
     group.add(TriangleObj {
-        center: mcp::vec2(0.0, 0.0),
+        center: mcp::vec2(100.0, 0.0),
         p1: mcp::vec2(50.0, -50.0),
         p2: mcp::vec2(50.0, 50.0),
         p3: mcp::vec2(-50.0, 0.0),
         color: mcp::BROWN,
+        is_static: true,
     });
 
     loop {

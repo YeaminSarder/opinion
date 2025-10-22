@@ -1478,6 +1478,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "obj_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "objc"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1506,6 +1515,7 @@ name = "opinion"
 version = "0.1.0"
 dependencies = [
  "macroquad",
+ "obj_macros",
  "rdev",
 ]
 
