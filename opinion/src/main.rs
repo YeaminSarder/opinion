@@ -1,12 +1,12 @@
 #![allow(dead_code)]
 
-use macroquad::prelude::coroutines::tweens::linear;
+//use macroquad::prelude::coroutines::tweens::linear;
 //use macroquad::prelude::{camera::mouse};
-use macroquad::prelude::{self as mcp, debug};
+use macroquad::prelude as mcp;
 //use std::{fmt, hint::select_unpredictable};
 // use rand::seq::SliceRandom;
 // use rand::{Rng, distr::Uniform, rng};
-use std::{default, fmt}; // for choose()
+use std::fmt; // for choose()
 
 //use macroquad::hash;
 //use macroquad::ui::root_ui;
@@ -674,7 +674,7 @@ fn handle_grid_click(grid: &mut Vec<bool>, cols: usize, rows: usize, cell_size: 
 
 fn window_conf() -> mcp::Conf {
     let default_win_size = (800, 600);
-    let (mut width, mut height) = default_win_size;
+    let (width, height) = default_win_size;
     // (width, height) = display_size().unwrap_or(default_win_size);
     println!("width: {} heigt: {}", width, height);
 
@@ -1023,7 +1023,7 @@ async fn main() {
 
     println!("{}", fireball);
 
-    let mut cards = vec![fireball];
+    //let cards = vec![fireball];
 
     let mut card_collection = CardCollection::generate();
 
