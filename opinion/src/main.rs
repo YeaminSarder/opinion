@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use macroquad::prelude as mcp;
+use macroquad::{prelude as mcp, shapes::draw_rectangle_ex};
 use std::fmt; // for choose()
 
 use obj_macros::Obj;
@@ -699,52 +699,117 @@ pub fn new_player_uid() -> usize {
     unsafe { PLAYER_UID - 1 }
 }
 
-struct HealthBar {
+struct HealthBar<'a> {
     health: u16,
-    rect: mcp::Rect,
+    card_count_hand: usize,
+    card_count_lib: usize,
+    hand_obj: usize,
+    group: ObjGroup<'a>,
 }
 
-impl HealthBar {
-    pub fn new(health: u16, plane: mcp::Rect) -> Self {
-        Self {
-            health: health,
-            rect: plane,
-        }
-    }
-    pub fn render(&self, font: &mcp::Font) {
-        self.rect.render();
-        let p = self.rect.center();
+impl<'a> HealthBar<'a> {
+    fn new(
+        card_count_hand: usize,
+        card_count_lib: usize,
+        health: u16,
+        pos: mcp::Vec2,
+        size: mcp::Vec2,
+        font: Option<&'a mcp::Font>,
+    ) -> Self {
+        let mut group = ObjGroup::new(pos.x, pos.y);
 
-        mcp::draw_circle_lines(p.x, p.y, 50.0, 20.0, DEFAULT_BG_COLOR);
+        group.add(RectObj {
+            pos: mcp::vec2(0.0, 0.0),
+            size,
+            color: mcp::BROWN,
+            ..Default::default()
+        });
+
+        group.add(CircleObj {
+            pos: mcp::vec2(0.0, 0.0),
+            radius: 50.0,
+            outline: 20.0,
+            fill: false,
+            color: DEFAULT_BG_COLOR,
+            ..Default::default()
+        });
+
+        group.add(RectObj {
+            pos: mcp::vec2(0.0, 0.0),
+            size: mcp::vec2(size.x, size.y / 1.8),
+            color: mcp::BROWN,
+            ..Default::default()
+        });
 
         let h = 60.0;
-        mcp::draw_triangle(
-            mcp::Vec2::new(self.rect.x - h, p.y),
-            mcp::Vec2::new(self.rect.x, self.rect.y),
-            mcp::Vec2::new(self.rect.x, self.rect.bottom()),
-            mcp::BROWN,
-        );
-        mcp::draw_triangle(
-            mcp::Vec2::new(self.rect.right() + h, p.y),
-            mcp::Vec2::new(self.rect.right(), self.rect.y),
-            mcp::Vec2::new(self.rect.right(), self.rect.bottom()),
-            mcp::BROWN,
-        );
+        group.add(TriangleObj {
+            center: mcp::vec2(size.x / 2.0, 0.0),
+            p1: mcp::vec2(h, 0.0),
+            p2: mcp::vec2(0.0, size.y / 2.0),
+            p3: mcp::vec2(0.0, -size.y / 2.0),
+            color: mcp::BROWN,
+            ..Default::default()
+        });
 
-        let offset = 20.0;
-        mcp::draw_rectangle(
-            self.rect.x,
-            self.rect.y + offset / 2.0,
-            self.rect.w,
-            self.rect.h - offset,
-            mcp::BROWN,
-        );
+        group.add(TriangleObj {
+            center: mcp::vec2(-size.x / 2.0, 0.0),
+            p1: mcp::vec2(-h, 0.0),
+            p2: mcp::vec2(0.0, size.y / 2.0),
+            p3: mcp::vec2(0.0, -size.y / 2.0),
+            color: mcp::BROWN,
+            ..Default::default()
+        });
 
-        let font_size = 40.0;
-        // let dim =
-        mcp::draw_text(&self.health.to_string(), p.x, p.y, font_size, mcp::WHITE);
+        let font_size = 40;
+        group.add(TextObj::new(
+            mcp::vec2(0.0, 0.0),
+            health.to_string(),
+            font,
+            font_size,
+            mcp::vec2(0.5, 0.5),
+            mcp::WHITE,
+            false,
+        ));
 
-        // mcp::draw_arc(300.0, 200.0, 20, 60., 0.0, 20.0, 180.0, mcp::WHITE);
+        let h = 120.0;
+        let secondary_font_size = 20;
+        group.add(TextObj::new(
+            mcp::vec2(-h, 0.0),
+            card_count_lib.to_string(),
+            font,
+            secondary_font_size,
+            mcp::vec2(0.5, 0.5),
+            mcp::WHITE,
+            false,
+        ));
+
+        let hand_obj = group.add(TextObj::new(
+            mcp::vec2(h, 0.0),
+            card_count_hand.to_string(),
+            font,
+            secondary_font_size,
+            mcp::vec2(0.5, 0.5),
+            mcp::WHITE,
+            false,
+        ));
+
+        Self {
+            health,
+            group,
+            card_count_hand,
+            card_count_lib,
+            hand_obj,
+        }
+    }
+
+    fn render(&mut self) {
+        self.group.draw();
+    }
+
+    fn update_hand_obj(&mut self, count: usize) {
+        if let Obj::Text(text_obj) = self.group.get(self.hand_obj) {
+            text_obj.text = count.to_string();
+        }
     }
 }
 
@@ -997,9 +1062,46 @@ pub struct TriangleObj {
     is_static: bool,
 }
 
+impl Default for TriangleObj {
+    fn default() -> Self {
+        Self {
+            center: mcp::vec2(0.0, 0.0),
+            p1: mcp::vec2(50.0, -50.0),
+            p2: mcp::vec2(50.0, 50.0),
+            p3: mcp::vec2(-50.0, 0.0),
+            color: mcp::BROWN,
+            is_static: true,
+        }
+    }
+}
+
+#[Obj]
+pub struct CircleObj {
+    pos: mcp::Vec2,
+    fill: bool,
+    radius: f32,
+    outline: f32,
+    color: mcp::Color,
+    is_static: bool,
+}
+
+impl Default for CircleObj {
+    fn default() -> Self {
+        Self {
+            pos: mcp::vec2(0.0, 0.0),
+            radius: 50.0,
+            fill: true,
+            outline: 0.0,
+            color: mcp::WHITE,
+            is_static: false,
+        }
+    }
+}
+
 pub enum Obj<'a> {
     Rect(RectObj),
     Text(TextObj<'a>),
+    Circle(CircleObj),
     Triangle(TriangleObj),
 }
 
@@ -1008,6 +1110,7 @@ impl<'a> Obj<'a> {
         match self {
             Obj::Rect(rect_obj) => rect_obj.is_static,
             Obj::Text(text_obj) => text_obj.is_static,
+            Obj::Circle(circle_obj) => circle_obj.is_static,
             Obj::Triangle(triangle_obj) => triangle_obj.is_static,
         }
     }
@@ -1034,11 +1137,16 @@ impl<'a> ObjGroup<'a> {
     }
 
     // Accept anything that can convert into Obj<'a>
-    pub fn add<O>(&mut self, obj: O)
+    pub fn add<O>(&mut self, obj: O) -> usize
     where
         O: Into<Obj<'a>>,
     {
         self.objs.push(obj.into());
+        return self.objs.len() - 1;
+    }
+
+    pub fn get(&mut self, ind: usize) -> &mut Obj<'a> {
+        return &mut self.objs[ind];
     }
 
     pub fn draw(&self) {
@@ -1046,6 +1154,7 @@ impl<'a> ObjGroup<'a> {
             match obj {
                 Obj::Rect(rect) => self.draw_rect(rect),
                 Obj::Text(text) => self.draw_text(text),
+                Obj::Circle(circle) => self.draw_circle(circle),
                 Obj::Triangle(triangle) => self.draw_triangle(triangle),
             }
         }
@@ -1063,25 +1172,40 @@ impl<'a> ObjGroup<'a> {
         self.rotation
     }
 
+    fn draw_circle(&self, circle: &CircleObj) {
+        let rotation = mcp::Mat2::from_angle(self.rotation);
+        let center = rotation * circle.pos + self.center;
+
+        if circle.fill {
+            mcp::draw_circle(center.x, center.y, circle.radius, circle.color);
+        } else {
+            mcp::draw_circle_lines(
+                center.x,
+                center.y,
+                circle.radius,
+                circle.outline,
+                circle.color,
+            );
+        }
+    }
+
     fn draw_triangle(&self, triangle: &TriangleObj) {
-        let center = self.center + triangle.center;
+        let rotation = mcp::Mat2::from_angle(self.rotation);
 
-        let angle = self.rotation;
-        // self.get_angle(*triangle);
-
-        let rotation = mcp::Mat2::from_angle(angle);
-
-        let rv1 = center + triangle.center + rotation * triangle.p1;
-        let rv2 = center + triangle.center + rotation * triangle.p2;
-        let rv3 = center + triangle.center + rotation * triangle.p3;
+        let rv1 = self.center + rotation * triangle.center + rotation * triangle.p1;
+        let rv2 = self.center + rotation * triangle.center + rotation * triangle.p2;
+        let rv3 = self.center + rotation * triangle.center + rotation * triangle.p3;
 
         mcp::draw_triangle(rv1, rv2, rv3, triangle.color);
     }
 
     fn draw_rect(&self, rect: &RectObj) {
+        let rotation = mcp::Mat2::from_angle(self.rotation);
+        let center = rotation * rect.pos + self.center;
+
         mcp::draw_rectangle_ex(
-            self.center.x + rect.pos.x,
-            self.center.y + rect.pos.y,
+            center.x,
+            center.y,
             rect.size.x,
             rect.size.y,
             mcp::DrawRectangleParams {
@@ -1094,9 +1218,12 @@ impl<'a> ObjGroup<'a> {
     }
 
     fn draw_text(&self, text: &TextObj) {
+        let rotation = mcp::Mat2::from_angle(self.rotation);
+        let pos = rotation * text.pos;
+
         let rot = calcurate_rect_rotation(
-            self.center.x + text.pos.x,
-            self.center.y + text.pos.y,
+            self.center.x + pos.x,
+            self.center.y + pos.y,
             text.dim.width,
             text.dim.height,
             self.rotation,
@@ -1119,27 +1246,37 @@ impl<'a> ObjGroup<'a> {
     }
 }
 
-// Implement conversions from inner types to Obj
+pub struct SelfPlayer<'a> {
+    base: BasePlayer<'a>,
+}
 
-// impl<'a> From<TriangleObj> for Obj<'a> {
-//     fn from(t: TriangleObj) -> Self {
-//         Obj::Triangle(t)
-//     }
-// }
+impl<'a> SelfPlayer<'a> {
+    pub fn render(&mut self, font: &mcp::Font) {
+        self.base.health_bar.render();
+        self.base.render_arena(font);
+        self.base.render_hand(font);
+    }
 
-// impl<'a> From<RectObj> for Obj<'a> {
-//     fn from(r: RectObj) -> Self {
-//         Obj::Rect(r)
-//     }
-// }
+    pub fn update(&mut self, mouse: &mut Mouse) {
+        for (ind, card) in self.base.hand.iter_mut().enumerate() {
+            card.update(mouse, ind, false, self.base.id);
+        }
+    }
+}
 
-// impl<'a> From<TextObj<'a>> for Obj<'a> {
-//     fn from(t: TextObj<'a>) -> Self {
-//         Obj::Text(t)
-//     }
-// }
+pub struct Opponent<'a> {
+    base: BasePlayer<'a>,
+}
 
-pub struct Player {
+impl<'a> Opponent<'a> {
+    pub fn render(&mut self, font: &mcp::Font) {
+        self.base.health_bar.render();
+        // self.base.render_arena(font);
+        // self.base.render_hand(font);
+    }
+}
+
+pub struct BasePlayer<'a> {
     id: usize,
     hand: Vec<Card>,
     arena: Vec<Card>,
@@ -1150,11 +1287,11 @@ pub struct Player {
     hand_rect: mcp::Rect,
     def_card_size: (f32, f32),
 
-    health_bar: HealthBar,
+    health_bar: HealthBar<'a>,
 }
 
-impl Player {
-    pub fn new(col: &CardCollection) -> Self {
+impl<'a> BasePlayer<'a> {
+    pub fn new(col: &CardCollection, font: Option<&'a mcp::Font>, opponet: bool) -> Self {
         let mut library = col.get_random(20);
         // for c in &library {
         //     debug!("{}", c);
@@ -1171,15 +1308,37 @@ impl Player {
         //     debug!("{}", c);
         // }
 
-        let arena_rect = SizeRatio::new(0.2, 0.52, 0.6, 0.15);
-        let hand_rect = SizeRatio::new(0.1, 0.75, 0.8, 0.15);
+        let arena_rect = if !opponet {
+            SizeRatio::new(0.2, 0.52, 0.6, 0.15)
+        } else {
+            SizeRatio::new(0.2, 1.0 - 0.52 - 0.15, 0.6, 0.15)
+        };
+        let hand_rect = if !opponet {
+            SizeRatio::new(0.1, 0.72, 0.8, 0.15)
+        } else {
+            SizeRatio::new(0.1, 1.0 - 0.72 - 0.15, 0.8, 0.15)
+        };
         let def_card_size = (hand_rect.w / 7.0, hand_rect.h);
 
-        Player::update_card_position_n_size(&mut hand, def_card_size, hand_rect);
+        BasePlayer::update_card_position_n_size(&mut hand, def_card_size, hand_rect);
 
         let default_health = 20;
-        let health_bar_plane = SizeRatio::new(0.2, 0.92, 0.6, 0.08);
-        let health_bar = HealthBar::new(default_health, health_bar_plane);
+        let health_bar_plane = if !opponet {
+            SizeRatio::new(0.3, 0.9, 0.4, 0.08)
+        } else {
+            SizeRatio::new(0.3, 0.02, 0.4, 0.08)
+        };
+        let health_bar = HealthBar::new(
+            hand.len(),
+            library.len(),
+            default_health,
+            mcp::vec2(
+                health_bar_plane.x + health_bar_plane.w / 2.0,
+                health_bar_plane.y + health_bar_plane.h / 2.0,
+            ),
+            mcp::vec2(health_bar_plane.w, health_bar_plane.h),
+            font,
+        );
 
         let ret = Self {
             id: new_player_uid(),
@@ -1250,7 +1409,7 @@ impl Player {
     }
 
     pub fn render(&mut self, font: &mcp::Font) {
-        self.health_bar.render(font);
+        self.health_bar.render();
         self.render_arena(font);
         self.render_hand(font);
     }
@@ -1262,8 +1421,14 @@ impl Player {
             self.arena.push(self.hand.remove(card_ind));
         }
 
-        Player::update_card_position_n_size(&mut self.arena, self.def_card_size, self.arena_rect);
-        Player::update_card_position_n_size(&mut self.hand, self.def_card_size, self.hand_rect);
+        BasePlayer::update_card_position_n_size(
+            &mut self.arena,
+            self.def_card_size,
+            self.arena_rect,
+        );
+        BasePlayer::update_card_position_n_size(&mut self.hand, self.def_card_size, self.hand_rect);
+
+        self.health_bar.update_hand_obj(self.hand.len());
     }
 
     pub fn update(&mut self, mouse: &mut Mouse) {
@@ -1273,8 +1438,8 @@ impl Player {
     }
 }
 
-pub struct Game {
-    players: Vec<Player>,
+pub struct Game<'a> {
+    players: Vec<BasePlayer<'a>>,
     turn: usize,
 
     is_running: bool,
@@ -1369,77 +1534,15 @@ const DEFAULT_BG_COLOR: mcp::Color = mcp::Color::from_rgba(31, 31, 31, 255);
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let card_width = SizeRatio::get_x(0.4);
-    let card_height = SizeRatio::get_y(0.6);
-
-    let fireball = Card::new(
-        CardImage::new(10, 10),
-        "Fireball",
-        "Deals fire damage to enemies.",
-        50,
-        CardType::Magic,
-        mcp::Rect::new(
-            mcp::screen_width() / 2.0 - card_width / 2.0,
-            mcp::screen_height() / 2.0 - card_height / 2.0,
-            card_width,
-            card_height,
-        ),
-    );
-
-    println!("{}", fireball);
-
-    let mut cards = vec![fireball];
-
+    let mut mouse = Mouse::new();
+    let font = mcp::load_ttf_font(FONT_PATH).await.unwrap();
     let mut card_collection = CardCollection::generate();
 
-    let mut player1 = Player::new(&mut card_collection);
+    let base_player1 = BasePlayer::new(&mut card_collection, Some(&font), false);
+    let mut player1 = SelfPlayer { base: base_player1 };
 
-    let font = mcp::load_ttf_font(FONT_PATH).await.unwrap();
-
-    let mut mouse = Mouse::new();
-
-    let mut canvas = Canvas::new(100.0, 100.0);
-    canvas.add(RectObj2 {
-        pos: mcp::Vec2::new(0.0, 0.0),
-        size: mcp::Vec2::new(50.0, 50.0),
-        color: mcp::WHITE,
-    });
-
-    canvas.add(TextObj2::new(
-        mcp::Vec2::new(0.0, 0.0),
-        "Hi there".into(),
-        Some(&font),
-        20,
-        mcp::BLUE,
-    ));
-
-    let mut group = ObjGroup::new(300.0, 200.0);
-    group.add(RectObj {
-        pos: mcp::Vec2::new(-100.0, 0.0),
-        size: mcp::Vec2::new(100.0, 100.0),
-        color: mcp::WHITE,
-        is_static: true,
-        ..Default::default()
-    });
-
-    group.add(TextObj::new(
-        mcp::vec2(50.0, 100.0),
-        "hi there".into(),
-        Some(&font),
-        24,
-        mcp::vec2(0.5, 0.5),
-        mcp::BLUE,
-        true,
-    ));
-
-    group.add(TriangleObj {
-        center: mcp::vec2(100.0, 0.0),
-        p1: mcp::vec2(50.0, -50.0),
-        p2: mcp::vec2(50.0, 50.0),
-        p3: mcp::vec2(-50.0, 0.0),
-        color: mcp::BROWN,
-        is_static: true,
-    });
+    let base_player2 = BasePlayer::new(&mut card_collection, Some(&font), true);
+    let mut player2 = SelfPlayer { base: base_player2 };
 
     loop {
         mcp::clear_background(DEFAULT_BG_COLOR);
@@ -1450,30 +1553,18 @@ async fn main() {
 
         //update
         player1.update(&mut mouse);
-
         player1.render(&font);
 
-        canvas.draw();
-        canvas.rotate(1.0);
-
-        group.draw();
-        group.rotate(1.0);
+        player2.render(&font);
 
         let mouse_contex = MouseContex {
-            players: &mut vec![&mut player1],
+            players: &mut vec![&mut player1.base],
         };
 
         mouse.update(mouse_contex);
         draw_fps();
         mcp::next_frame().await
     }
-}
-
-fn modify<F>(callback: F, card: &mut Card)
-where
-    F: FnOnce(&mut Card),
-{
-    callback(card);
 }
 
 pub type CallBack = Box<dyn FnOnce(&mut Card)>;
@@ -1489,8 +1580,8 @@ pub enum GrabObj {
     Hand(usize, usize),
 }
 
-pub struct MouseContex<'a> {
-    players: &'a mut Vec<&'a mut Player>,
+pub struct MouseContex<'a, 'b> {
+    players: &'a mut Vec<&'a mut BasePlayer<'b>>,
 }
 
 trait Grabbable {
@@ -1513,8 +1604,6 @@ impl Mouse {
     pub fn update(&mut self, ctx: MouseContex) {
         let delta = self.delta();
 
-        // let mut cab = None;
-
         if mcp::is_mouse_button_released(mcp::MouseButton::Left) {
             if let Some((grab, act)) = &mut self.grab {
                 match *grab {
@@ -1531,6 +1620,7 @@ impl Mouse {
 
             self.grab = None;
             self.last_pos = mcp::mouse_position();
+
             return;
         }
 
