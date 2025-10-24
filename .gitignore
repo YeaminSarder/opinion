@@ -6,6 +6,12 @@
 # Added by cargo
 
 /target
+public/opinion.wasm
+public/opinion_bg.wasm
+public/opinion_bg.wasm.d.ts
+public/opinion.d.ts
+public/opinion.js
+
 .vercel
 
 # Added my who

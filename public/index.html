@@ -1,38 +1,27 @@
 <html lang="en">
-
-<head>
-    <meta charset="utf-8">
-    <title>Opinion</title>
+  <head>
+    <meta charset="UTF-8" />
     <style>
-        html,
-        body,
-        canvas {
-            margin: 0px;
-            padding: 0px;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            position: absolute;
-            background: black;
-            z-index: 0;
-        }
+      body {
+        background: linear-gradient(
+          135deg,
+          white 0%,
+          white 49%,
+          black 49%,
+          black 51%,
+          white 51%,
+          white 100%
+        ) repeat;
+        background-size: 20px 20px;
+      }
+      canvas {
+        background-color: white;
+      }
     </style>
-</head>
-
-<body>
-    <canvas id="glcanvas" tabindex='1'></canvas>
-    <!-- <script src="https://not-fl3.github.io/miniquad-samples/gl.js"></script> -->
-    <!-- <script src="plugin.js"></script> -->
-    <script src="gl.js"></script>
-    <script>
-        importObject.env.get_seed = () => {
-            const buf = new Uint32Array(2);
-            crypto.getRandomValues(buf);
-            const seed = (BigInt(buf[0]) << 32n) | BigInt(buf[1]);
-            return seed;
-        }
-    </script>
-    <script>load("opinion.wasm");</script>
-</body>
-
+    <title>Wasm Example</title>
+  </head>
+  <script type="module">
+    import init from './opinion.js'
+    init()
+  </script>
 </html>
