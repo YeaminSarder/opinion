@@ -1,4 +1,12 @@
 use bevy::prelude as bp;
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[wasm_bindgen]
+extern "C" {
+    // import window.alert from JS
+    #[wasm_bindgen(js_namespace = window)]
+    fn alert(s: &str);
+}
 
 fn main() {
     bp::App::new()
@@ -14,6 +22,8 @@ fn setup(
     mut meshes: bp::ResMut<bp::Assets<bp::Mesh>>,
     mut materials: bp::ResMut<bp::Assets<bp::StandardMaterial>>,
 ) {
+    alert("hey bro!");
+
     // circular base
     commands.spawn((
         bp::Mesh3d(meshes.add(bp::Circle::new(4.0))),
@@ -22,7 +32,7 @@ fn setup(
     ));
     // cube
     commands.spawn((
-	MyCube,
+        MyCube,
         bp::Mesh3d(meshes.add(bp::Cuboid::new(1.0, 1.0, 1.0))),
         bp::MeshMaterial3d(materials.add(bp::Color::srgb_u8(124, 144, 255))),
         bp::Transform::from_xyz(0.0, 0.5, 0.0),

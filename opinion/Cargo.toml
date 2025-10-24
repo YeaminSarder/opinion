@@ -64,6 +64,7 @@ bevy = {version = "0.17.2", features = [
   "zstd_rust",		 # dependency for pbr
 # ]
 ], default-features = false}
+wasm-bindgen = "0.2.104"
 
 # This dependency is used only when NOT compiling for wasm32
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
