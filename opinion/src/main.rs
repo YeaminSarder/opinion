@@ -4,6 +4,7 @@ fn main() {
     bp::App::new()
         .add_plugins(bp::DefaultPlugins)
         .add_systems(bp::Startup, setup)
+        .add_systems(bp::Update, update)
         .run();
 }
 
@@ -21,6 +22,7 @@ fn setup(
     ));
     // cube
     commands.spawn((
+	MyCube,
         bp::Mesh3d(meshes.add(bp::Cuboid::new(1.0, 1.0, 1.0))),
         bp::MeshMaterial3d(materials.add(bp::Color::srgb_u8(124, 144, 255))),
         bp::Transform::from_xyz(0.0, 0.5, 0.0),
@@ -38,4 +40,13 @@ fn setup(
         bp::Camera3d::default(),
         bp::Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(bp::Vec3::ZERO, bp::Vec3::Y),
     ));
+}
+
+#[derive(bp::Component)]
+struct MyCube;
+
+fn update(time: bp::Res<bp::Time>, query: bp::Query<&mut bp::Transform, bp::With<MyCube>>) {
+    for mut transform in query {
+        transform.rotate_y(time.delta_secs() / 2.);
+    }
 }
