@@ -39,7 +39,7 @@ bevy = {version = "0.17.2", features = [
 #  "multi_threaded",
    "webgl2",
 #  "x11",
-#  "wayland",
+ "wayland",
 #  "sysinfo_plugin",
 #]
 #3d_bevy_render = [

@@ -9,11 +9,12 @@ extern "C" {
 }
 
 fn main() {
-    bp::App::new()
-        .add_plugins(bp::DefaultPlugins)
+    let mut app = bp::App::new();
+    app.add_plugins(bp::DefaultPlugins)
         .add_systems(bp::Startup, setup)
-        .add_systems(bp::Update, update)
-        .run();
+        .add_systems(bp::Update, update);
+
+    app.run();
 }
 
 /// set up a simple 3D scene
@@ -22,6 +23,7 @@ fn setup(
     mut meshes: bp::ResMut<bp::Assets<bp::Mesh>>,
     mut materials: bp::ResMut<bp::Assets<bp::StandardMaterial>>,
 ) {
+    #[cfg(target_arch = "wasm32")]
     alert("hey bro!");
 
     // circular base
