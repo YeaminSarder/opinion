@@ -5,7 +5,65 @@ edition = "2024"
 
 
 [dependencies]
-bevy = "0.17.2"
+bevy = {version = "0.17.2", features = [
+# default_app = [
+#  "async_executor",
+#  "bevy_asset",
+#  "bevy_input_focus",
+#  "bevy_log",
+#  "bevy_state",
+#  "bevy_window",
+#  "custom_cursor",
+#  "reflect_auto_register",
+# ]
+# 3d_api = [
+## common_api = [
+#n  "bevy_animation",
+#  "bevy_camera",
+#  "bevy_color",
+#  "bevy_gizmos",
+#  "bevy_image",
+#  "bevy_mesh",
+#  "bevy_shader",
+#  "bevy_text",
+#  "hdr",
+#  "png",
+##]
+#default_platform = [
+#  "std",
+#  "android-game-activity",
+#  "android_shared_stdcxx",
+#  "bevy_gilrs",
+   "bevy_winit",   # to spawn window
+#  "default_font",
+#  "multi_threaded",
+   "webgl2",
+#  "x11",
+#  "wayland",
+#  "sysinfo_plugin",
+#]
+#3d_bevy_render = [
+#-  "3d_api",
+#  "bevy_render",
+#   "bevy_core_pipeline",
+#-  "bevy_gizmos_render",
+#  "bevy_anti_alias",
+#  "bevy_gltf",		 # finds MeshMaterial3d
+#  "bevy_scene",
+  "bevy_pbr",            # physics based rendering, includes lightings
+#   "bevy_post_process",
+#-  "gltf_animation",
+#]
+#   "bevy_light",	 # using lighting
+#-  "bevy_mikktspace",
+#   "ktx2",
+#-  "morph_animation",
+#-  "morph",
+#  "smaa_luts",
+  "tonemapping_luts",	 # wrong colors otherwise
+  "zstd_rust",		 # dependency for pbr
+# ]
+], default-features = false}
 
 # This dependency is used only when NOT compiling for wasm32
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
