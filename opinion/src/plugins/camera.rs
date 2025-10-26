@@ -1,7 +1,7 @@
 use bevy::{
     app::{App, Plugin, Startup},
-    camera::Camera3d,
-    ecs::system::Commands,
+    camera::{Camera, Camera2d, Camera3d, RenderTarget},
+    ecs::{entity::Entity, resource::Resource, system::Commands},
     light::PointLight,
     math::Vec3,
     transform::components::Transform,
@@ -9,6 +9,9 @@ use bevy::{
 
 const TOP: f32 = 12.0;
 const FORWORD: f32 = -12.0;
+
+#[derive(Resource)]
+struct C2DID(Entity);
 
 pub struct CameraOpinion;
 
