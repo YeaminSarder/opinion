@@ -47,17 +47,9 @@ fn setup(
     // ));
     commands.spawn((
         MyCube,
-        bp::Mesh3d(meshes.add(bp::Cuboid::new(2.0, 2.0, 0.2))),
+        bp::Mesh3d(meshes.add(bp::Cuboid::new(2.0, 3.0, 0.5))),
         bp::MeshMaterial3d(materials.add(bp::Color::srgb_u8(124, 144, 255))),
-        bp::Transform::from_xyz(0.0, 0.5, 0.0),
-    ));
-    // light
-    commands.spawn((
-        bp::PointLight {
-            shadows_enabled: true,
-            ..bp::default()
-        },
-        bp::Transform::from_xyz(4.0, 8.0, 4.0),
+        bp::Transform::from_xyz(0.0, 0.0, 0.5),
     ));
 }
 
@@ -65,7 +57,7 @@ fn setup(
 struct MyCube;
 
 fn update(time: bp::Res<bp::Time>, query: bp::Query<&mut bp::Transform, bp::With<MyCube>>) {
-    for mut transform in query {
-        transform.rotate_y(time.delta_secs() / 2.);
-    }
+    // for mut transform in query {
+    //     transform.rotate_y(time.delta_secs() / 2.);
+    // }
 }
