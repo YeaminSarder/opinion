@@ -1,6 +1,9 @@
 use bevy::prelude as bp;
 use wasm_bindgen::prelude::wasm_bindgen;
 
+mod plugins;
+use plugins::{CameraOpinion, Fps, WindowOffscreen};
+
 #[wasm_bindgen]
 extern "C" {
     // import window.alert from JS
@@ -11,13 +14,16 @@ extern "C" {
 fn main() {
     let mut app = bp::App::new();
     app.add_plugins(bp::DefaultPlugins)
+        .add_plugins(WindowOffscreen)
+        .add_plugins(CameraOpinion)
+        .add_plugins(Fps)
         .add_systems(bp::Startup, setup)
         .add_systems(bp::Update, update);
 
     app.run();
 }
 
-/// set up a simple 3D scene
+// set up a simple 3D scene
 fn setup(
     mut commands: bp::Commands,
     mut meshes: bp::ResMut<bp::Assets<bp::Mesh>>,
@@ -33,9 +39,15 @@ fn setup(
         bp::Transform::from_rotation(bp::Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
     // cube
+    // commands.spawn((
+    //     MyCube,
+    //     bp::Mesh3d(meshes.add(bp::Cuboid::new(1.0, 1.0, 1.0))),
+    //     bp::MeshMaterial3d(materials.add(bp::Color::srgb_u8(124, 144, 255))),
+    //     bp::Transform::from_xyz(0.0, 0.5, 0.0),
+    // ));
     commands.spawn((
         MyCube,
-        bp::Mesh3d(meshes.add(bp::Cuboid::new(1.0, 1.0, 1.0))),
+        bp::Mesh3d(meshes.add(bp::Cuboid::new(2.0, 2.0, 0.2))),
         bp::MeshMaterial3d(materials.add(bp::Color::srgb_u8(124, 144, 255))),
         bp::Transform::from_xyz(0.0, 0.5, 0.0),
     ));
@@ -46,11 +58,6 @@ fn setup(
             ..bp::default()
         },
         bp::Transform::from_xyz(4.0, 8.0, 4.0),
-    ));
-    // camera
-    commands.spawn((
-        bp::Camera3d::default(),
-        bp::Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(bp::Vec3::ZERO, bp::Vec3::Y),
     ));
 }
 

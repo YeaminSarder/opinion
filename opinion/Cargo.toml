@@ -3,9 +3,17 @@ name = "opinion"
 version = "0.1.0"
 edition = "2024"
 
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
 
 [dependencies]
 bevy = {version = "0.17.2", features = [
+"dynamic_linking",
 # default_app = [
 #  "async_executor",
 #  "bevy_asset",
@@ -25,7 +33,8 @@ bevy = {version = "0.17.2", features = [
 #  "bevy_image",
 #  "bevy_mesh",
 #  "bevy_shader",
-#  "bevy_text",
+ "bevy_text",
+  "bevy_ui",
 #  "hdr",
 #  "png",
 ##]
@@ -35,7 +44,7 @@ bevy = {version = "0.17.2", features = [
 #  "android_shared_stdcxx",
 #  "bevy_gilrs",
    "bevy_winit",   # to spawn window
-#  "default_font",
+ "default_font",
 #  "multi_threaded",
    "webgl2",
 #  "x11",
@@ -63,7 +72,8 @@ bevy = {version = "0.17.2", features = [
   "tonemapping_luts",	 # wrong colors otherwise
   "zstd_rust",		 # dependency for pbr
 # ]
-], default-features = false}
+] }
+# ], default-features = false}
 wasm-bindgen = "0.2.104"
 
 # This dependency is used only when NOT compiling for wasm32

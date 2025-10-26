@@ -17,6 +17,7 @@ public/opinion.js
 # Added my who
 /macroquad
 /particles-editor
+/assets
 
 # confidential
 .env.local
