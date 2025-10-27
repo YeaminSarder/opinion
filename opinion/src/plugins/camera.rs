@@ -1,14 +1,12 @@
 use bevy::{
     app::{App, Plugin, Startup},
-    camera::{Camera, Camera2d, Camera3d, RenderTarget},
+    camera::Camera3d,
     ecs::{entity::Entity, resource::Resource, system::Commands},
     light::PointLight,
     math::Vec3,
     transform::components::Transform,
 };
 
-const TOP: f32 = 12.0;
-const FORWORD: f32 = -12.0;
 
 #[derive(Resource)]
 struct C2DID(Entity);
