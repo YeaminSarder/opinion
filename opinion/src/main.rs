@@ -2,7 +2,7 @@ use bevy::prelude as bp;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 mod plugins;
-use plugins::{CameraOpinion, Fps, WindowOffscreen};
+use plugins::{CameraOpinion, Fps, TestCubeUp, WindowOffscreen};
 
 #[wasm_bindgen]
 extern "C" {
@@ -17,6 +17,7 @@ fn main() {
         .add_plugins(WindowOffscreen)
         .add_plugins(CameraOpinion)
         .add_plugins(Fps)
+        .add_plugins(TestCubeUp)
         .add_systems(bp::Startup, setup)
         .add_systems(bp::Update, update);
 
