@@ -24,7 +24,7 @@ impl Plugin for CameraOpinion {
 fn add_camera_and_light(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, TOP, FORWORD).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(0.0, -16.0, 16.0).looking_at(Vec3::ZERO, Vec3::Z),
     ));
 
     commands.spawn((
@@ -32,6 +32,6 @@ fn add_camera_and_light(mut commands: Commands) {
             shadows_enabled: true,
             ..Default::default()
         },
-        Transform::from_xyz(0.0, TOP, 0.0),
+        Transform::from_xyz(-16.0, -16.0, 16.0),
     ));
 }
