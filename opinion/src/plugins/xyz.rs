@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    app::{Plugin, Startup},
+    app::{App, Plugin, Startup},
     asset::Assets,
     color::Color,
     ecs::{
@@ -21,7 +21,7 @@ pub struct XYZ {
     pub resolution: u32,
 }
 impl Plugin for XYZ {
-    fn build(&self, app: &mut bevy::app::App) {
+    fn build(&self, app: &mut App) {
         app.insert_resource(*self);
         app.add_systems(Startup, startup);
     }

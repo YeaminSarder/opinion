@@ -17,7 +17,7 @@ public/opinion.js
 # Added my who
 /macroquad
 /particles-editor
-/assets
+assets/JetBrainsMono-Medium.ttf
 
 # confidential
 .env.local

@@ -7,7 +7,6 @@ use bevy::{
     transform::components::Transform,
 };
 
-
 #[derive(Resource)]
 struct C2DID(Entity);
 
