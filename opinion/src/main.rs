@@ -7,6 +7,7 @@ use bevy::{
 use wasm_bindgen::prelude::wasm_bindgen;
 
 mod plugins;
+mod custom_meshes;
 use plugins::{CameraOpinion, Fps, PanOrbitCamera, TestCubeUp, WindowOffscreen, XYZ};
 
 #[wasm_bindgen]
@@ -218,10 +219,12 @@ fn setup(
 
     let custom_texture_handle: Handle<Image> = asset_server.load("array_texture.png");
     // Create and save a handle to the mesh.
-    let cube_mesh_handle: Handle<Mesh> = meshes.add(ccube(1.0, 1.0, 1.0));
+    let cube_mesh_handle: Handle<Mesh> = meshes.add(custom_meshes::card(1.0, 1.0, 0.1));
 
+    
     // Render the mesh with the custom texture, and add the marker.
     commands.spawn((
+	MyCard,
         Mesh3d(cube_mesh_handle),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color_texture: Some(custom_texture_handle),
@@ -278,12 +281,16 @@ fn ccube(x: f32, y: f32, z: f32) -> bp::Mesh {
     .with_inserted_attribute(bp::Mesh::ATTRIBUTE_UV_0, uvs)
     .with_inserted_indices(indices)
 }
+#[derive(bp::Component)]
+struct MyCard;
+
+
 
 #[derive(bp::Component)]
 struct MyCube;
 
-fn update(time: bp::Res<bp::Time>, query: bp::Query<&mut bp::Transform, bp::With<MyCube>>) {
-    // for mut transform in query {
-    //     transform.rotate_y(time.delta_secs() / 2.);
-    // }
+fn update(time: bp::Res<bp::Time>, query: bp::Query<&mut bp::Transform, bp::With<MyCard>>) {
+    for mut transform in query {
+        transform.rotate_y(time.delta_secs());
+    }
 }
