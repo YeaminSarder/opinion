@@ -1,9 +1,5 @@
-use bevy::{
-    app::PluginGroup,
-    asset::{AssetPlugin, RenderAssetUsages},
-    mesh::{Indices, PrimitiveTopology},
-    prelude as bp,
-};
+use bevy::prelude as bp;
+use bevy::app::PluginGroup;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 mod plugins;
@@ -20,7 +16,7 @@ extern "C" {
 fn main() {
     let asset_path = "../assets/";
     let mut app = bp::App::new();
-    app.add_plugins(bp::DefaultPlugins.set(AssetPlugin {
+    app.add_plugins(bp::DefaultPlugins.set(bp::AssetPlugin {
         file_path: asset_path.into(),
         ..Default::default()
     }))
@@ -263,7 +259,7 @@ fn ccube(x: f32, y: f32, z: f32) -> bp::Mesh {
     let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
     #[rustfmt::skip]
-    let indices = Indices::U32(vec![
+    let indices = bevy::mesh::Indices::U32(vec![
         0, 1, 2, 2, 3, 0, // front
         // 4, 5, 6, 6, 7, 4, // back
         // 8, 9, 10, 10, 11, 8, // right
@@ -273,8 +269,8 @@ fn ccube(x: f32, y: f32, z: f32) -> bp::Mesh {
     ]);
 
     bp::Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::default(),
+        bevy::mesh::PrimitiveTopology::TriangleList,
+        bevy::asset::RenderAssetUsages::default(),
     )
     .with_inserted_attribute(bp::Mesh::ATTRIBUTE_POSITION, positions)
     .with_inserted_attribute(bp::Mesh::ATTRIBUTE_NORMAL, normals)
