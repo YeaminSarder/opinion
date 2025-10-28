@@ -1,1 +1,1 @@
-CARGO_MANIFEST_DIR="." cargo run --bin opinion
+cargo run --bin opinion

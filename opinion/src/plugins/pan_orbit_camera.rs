@@ -7,6 +7,7 @@ use bevy::{
         change_detection::DetectChanges,
         component::Component,
         event::EventReader,
+        message::MessageReader,
         schedule::{IntoScheduleConfigs, common_conditions::any_with_component},
         system::{Commands, Query, Res},
     },
@@ -19,7 +20,10 @@ use bevy::{
     transform::components::Transform,
 };
 
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use std::{
+    f32::consts::{FRAC_PI_2, PI, TAU},
+    ops::Neg,
+};
 
 pub struct PanOrbitCamera;
 
@@ -37,7 +41,6 @@ impl Plugin for PanOrbitCamera {
 #[derive(Bundle, Default)]
 pub struct PanOrbitCameraBundle {
     pub camera: Camera3d,
-    pub transform: Transform,
     pub state: PanOrbitState,
     pub settings: PanOrbitSettings,
 }
@@ -51,12 +54,14 @@ pub struct PanOrbitSettings {
     pub orbit_sensitivity: f32,
     /// Exponent per pixel of mouse motion
     pub zoom_sensitivity: f32,
+    pub roll_sensitivity: f32,
     /// Key to hold for panning
     pub pan_key: Option<KeyCode>,
     /// Key to hold for orbiting
     pub orbit_key: Option<KeyCode>,
     /// Key to hold for zooming
     pub zoom_key: Option<KeyCode>,
+    pub roll_key: Option<KeyCode>,
     /// What action is bound to the scroll wheel?
     pub scroll_action: Option<PanOrbitAction>,
     /// For devices with a notched scroll wheel, like desktop mice
@@ -80,6 +85,7 @@ pub struct PanOrbitState {
     pub upside_down: bool,
     pub pitch: f32,
     pub yaw: f32,
+    pub roll: f32,
 }
 
 impl Default for PanOrbitState {
@@ -90,6 +96,7 @@ impl Default for PanOrbitState {
             upside_down: false,
             pitch: 0.0,
             yaw: 0.0,
+            roll: 0.0,
         }
     }
 }
@@ -100,9 +107,11 @@ impl Default for PanOrbitSettings {
             pan_sensitivity: 0.001,                 // 1000 pixels per world unit
             orbit_sensitivity: 0.1f32.to_radians(), // 0.1 degree per pixel
             zoom_sensitivity: 0.01,
+            roll_sensitivity: 1.0f32.to_radians(),
             pan_key: Some(KeyCode::ControlLeft),
             orbit_key: Some(KeyCode::AltLeft),
             zoom_key: Some(KeyCode::ShiftLeft),
+            roll_key: Some(KeyCode::KeyR),
             scroll_action: Some(PanOrbitAction::Zoom),
             scroll_line_sensitivity: 16.0, // 1 "line" == 16 "pixels of motion"
             scroll_pixel_sensitivity: 1.0,
@@ -112,20 +121,17 @@ impl Default for PanOrbitSettings {
 
 fn spawn_camera(mut commands: Commands) {
     let mut camera = PanOrbitCameraBundle::default();
-    // camera.transform = Transform::from_xyz(0.0, -16.0, 16.0).looking_at(Vec3::ZERO, Vec3::Z);
-    // Position our camera using our component,
-    // not Transform (it would get overwritten)
-    // camera.state.center = Vec3::new(0.0, 0.0, 0.0);
     camera.state.radius = 7.0;
-    camera.state.pitch = 10.0f32.to_radians();
+    camera.state.roll = 180.0f32.to_radians();
+    // camera.state.pitch = 10.0f32.to_radians();
     // camera.state.yaw = 180.0f32.to_radians();
     commands.spawn(camera);
 }
 
 fn pan_orbit_camera(
     kbd: Res<ButtonInput<KeyCode>>,
-    mut evr_motion: EventReader<MouseMotion>,
-    mut evr_scroll: EventReader<MouseWheel>,
+    mut evr_motion: MessageReader<MouseMotion>,
+    mut evr_scroll: MessageReader<MouseWheel>,
     mut q_camera: Query<(&PanOrbitSettings, &mut PanOrbitState, &mut Transform)>,
 ) {
     // First, accumulate the total amount of
@@ -195,6 +201,7 @@ fn pan_orbit_camera(
         {
             total_zoom -= total_motion * settings.zoom_sensitivity;
         }
+
         if settings.scroll_action == Some(PanOrbitAction::Zoom) {
             total_zoom -=
                 total_scroll_lines * settings.scroll_line_sensitivity * settings.zoom_sensitivity;
@@ -266,13 +273,29 @@ fn pan_orbit_camera(
             state.center += transform.up() * total_pan.y * radius;
         }
 
+        if settings
+            .roll_key
+            .map(|key| kbd.pressed(key))
+            .unwrap_or(false)
+        {
+            any = true;
+
+            let mut dir = 1.0;
+            if kbd.pressed(KeyCode::ShiftLeft) || kbd.pressed(KeyCode::ShiftRight) {
+                dir = dir.neg();
+            }
+
+            state.roll += settings.roll_sensitivity * dir;
+        }
+
         // Finally, compute the new camera transform.
         // (if we changed anything, or if the pan-orbit
         // controller was just added and thus we are running
         // for the first time and need to initialize)
         if any || state.is_added() {
             // YXZ Euler Rotation performs yaw/pitch/roll.
-            transform.rotation = Quat::from_euler(EulerRot::YXZ, state.yaw, state.pitch, 0.0);
+            transform.rotation =
+                Quat::from_euler(EulerRot::YXZ, state.yaw, state.pitch, state.roll);
             // To position the camera, get the backward direction vector
             // and place the camera at the desired radius from the center.
             transform.translation = state.center + transform.back() * state.radius;

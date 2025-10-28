@@ -1,9 +1,9 @@
-use bevy::prelude as bp;
 use bevy::app::PluginGroup;
+use bevy::prelude as bp;
 use wasm_bindgen::prelude::wasm_bindgen;
 
-mod plugins;
 mod custom_meshes;
+mod plugins;
 use plugins::{CameraOpinion, Fps, PanOrbitCamera, TestCubeUp, WindowOffscreen, XYZ};
 
 #[wasm_bindgen]
@@ -179,48 +179,20 @@ fn setup(
         ..default()
     });
 
-    let cube = commands
-        .spawn((
-            MyCube,
-            bp::Mesh3d(meshes.add(bp::Cuboid::new(2.0, 3.0, 0.5))),
-            // bp::MeshMaterial3d(materials.add(bp::Color::srgb_u8(124, 144, 255))),
-            bp::MeshMaterial3d(material_handle),
-            bp::Transform::from_rotation(bp::Quat::from_rotation_x(std::f32::consts::PI)),
-        ))
-        .id();
-
-    // commands.entity(cube).with_children(|parent| {
-    //     parent.spawn(Text2dBundle {
-    //         text: Text::from_section(
-    //             "Hello\nCube",
-    //             TextStyle {
-    //                 font: font.clone(),
-    //                 font_size: 40.0,
-    //                 color: Color::WHITE,
-    //             },
-    //         )
-    //         .with_alignment(TextAlignment::Center),
-    //         // place slightly outside the face so it doesn't z-fight with the cube
-    //         transform: Transform::from_xyz(0.0, 0.0, 0.51).with_scale(Vec3::splat(0.02)), // scale down so the text fits the face
-    //         ..Default::default()
-    //     });
-    // });
-
-    // commands.spawn((
-    //     bp::Text2d::new("The Spactator"),
-    //     bp::TextFont::default(),
-    //     // bp::Transform::from_translation(bp::Vec3::new(0.0, 4.0, 0.5)),
-    //     // bp::Transform::from_rotation(bp::Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)),
-    // ));
+    commands.spawn((
+        MyCube,
+        bp::Mesh3d(meshes.add(bp::Cuboid::new(2.0, 3.0, 0.5))),
+        bp::MeshMaterial3d(material_handle),
+        bp::Transform::from_rotation(bp::Quat::from_rotation_x(std::f32::consts::PI)),
+    ));
 
     let custom_texture_handle: Handle<Image> = asset_server.load("array_texture.png");
     // Create and save a handle to the mesh.
-    let cube_mesh_handle: Handle<Mesh> = meshes.add(custom_meshes::card(1.0, 1.0, 0.1));
+    let cube_mesh_handle: Handle<Mesh> = meshes.add(custom_meshes::card(1.0, 1.0, 1.0));
 
-    
     // Render the mesh with the custom texture, and add the marker.
     commands.spawn((
-	MyCard,
+        MyCard,
         Mesh3d(cube_mesh_handle),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color_texture: Some(custom_texture_handle),
@@ -279,8 +251,6 @@ fn ccube(x: f32, y: f32, z: f32) -> bp::Mesh {
 }
 #[derive(bp::Component)]
 struct MyCard;
-
-
 
 #[derive(bp::Component)]
 struct MyCube;
