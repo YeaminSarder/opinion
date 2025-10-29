@@ -6,7 +6,6 @@ use bevy::{
         bundle::Bundle,
         change_detection::DetectChanges,
         component::Component,
-        event::EventReader,
         message::MessageReader,
         schedule::{IntoScheduleConfigs, common_conditions::any_with_component},
         system::{Commands, Query, Res},
@@ -121,7 +120,7 @@ impl Default for PanOrbitSettings {
 
 fn spawn_camera(mut commands: Commands) {
     let mut camera = PanOrbitCameraBundle::default();
-    camera.state.radius = 7.0;
+    camera.state.radius = 12.0;
     camera.state.roll = 180.0f32.to_radians();
     // camera.state.pitch = 10.0f32.to_radians();
     // camera.state.yaw = 180.0f32.to_radians();
@@ -295,7 +294,10 @@ fn pan_orbit_camera(
         if any || state.is_added() {
             // YXZ Euler Rotation performs yaw/pitch/roll.
             transform.rotation =
-                Quat::from_euler(EulerRot::YXZ, state.yaw, state.pitch, state.roll);
+                Quat::from_euler(EulerRot::ZYX, state.roll, state.yaw, -state.pitch);
+
+            // transform.rotation =
+            //     Quat::from_euler(EulerRot::YXZ, state.yaw, state.pitch, state.roll);
             // To position the camera, get the backward direction vector
             // and place the camera at the desired radius from the center.
             transform.translation = state.center + transform.back() * state.radius;
