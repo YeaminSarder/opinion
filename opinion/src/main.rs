@@ -1,5 +1,6 @@
 use bevy::app::PluginGroup;
 use bevy::prelude as bp;
+use custom_meshes::UV1x3;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 mod custom_meshes;
@@ -62,8 +63,8 @@ fn setup(
         // bp::Transform::from_rotation(bp::Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 
-    let custom_texture_handle: bp::Handle<bp::Image> = asset_server.load("array_texture.png");
-    let cube_mesh_handle: bp::Handle<bp::Mesh> = meshes.add(custom_meshes::card(1.0, 1.0, 1.0));
+    let custom_texture_handle: bp::Handle<bp::Image> = asset_server.load("array_texture2.png");
+    let cube_mesh_handle: bp::Handle<bp::Mesh> = meshes.add(custom_meshes::card(1.0, 1.0, 1.0,UV1x3::default()));
 
     commands.spawn((
         MyCard,

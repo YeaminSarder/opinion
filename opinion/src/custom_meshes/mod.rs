@@ -1,2 +1,3 @@
 mod card;
-pub use card::card;
+pub use card::*;
+
