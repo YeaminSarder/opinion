@@ -121,9 +121,7 @@ impl Default for PanOrbitSettings {
 fn spawn_camera(mut commands: Commands) {
     let mut camera = PanOrbitCameraBundle::default();
     camera.state.radius = 12.0;
-    camera.state.roll = 180.0f32.to_radians();
-    // camera.state.pitch = 10.0f32.to_radians();
-    // camera.state.yaw = 180.0f32.to_radians();
+    camera.state.pitch = - std::f32::consts::FRAC_PI_4;
     commands.spawn(camera);
 }
 
@@ -294,7 +292,7 @@ fn pan_orbit_camera(
         if any || state.is_added() {
             // YXZ Euler Rotation performs yaw/pitch/roll.
             transform.rotation =
-                Quat::from_euler(EulerRot::ZYX, state.roll, state.yaw, -state.pitch);
+                Quat::from_euler(EulerRot::YZX, state.roll ,state.yaw, -state.pitch);
 
             // transform.rotation =
             //     Quat::from_euler(EulerRot::YXZ, state.yaw, state.pitch, state.roll);
