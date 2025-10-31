@@ -1,19 +1,11 @@
 use bevy::{
-    self,
     app::{App, Plugin, Startup, Update},
     camera::Camera3d,
     ecs::{
-        bundle::Bundle,
-        change_detection::DetectChanges,
-        component::Component,
-        message::MessageReader,
-        schedule::{IntoScheduleConfigs, common_conditions::any_with_component},
-        system::{Commands, Query, Res},
+        bundle::Bundle, change_detection::DetectChanges, component::Component, message::MessageReader, schedule::{common_conditions::any_with_component, IntoScheduleConfigs}, system::{Commands, Query, Res}
     },
     input::{
-        ButtonInput,
-        keyboard::KeyCode,
-        mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
+        gestures::{PanGesture, PinchGesture, RotationGesture}, keyboard::KeyCode, mouse::{MouseMotion, MouseScrollUnit, MouseWheel}, ButtonInput
     },
     math::{EulerRot, Quat, Vec2, Vec3},
     transform::components::Transform,
@@ -53,6 +45,10 @@ pub struct PanOrbitSettings {
     pub orbit_sensitivity: f32,
     /// Exponent per pixel of mouse motion
     pub zoom_sensitivity: f32,
+    /// Zoom sensitivity when pinching
+    pub pinch_zoom_sensitivity:f32,
+    /// Rotate sensitivity for gesture rotate
+    pub rotate_sensitivity:f32,
     pub roll_sensitivity: f32,
     /// Key to hold for panning
     pub pan_key: Option<KeyCode>,
@@ -106,12 +102,14 @@ impl Default for PanOrbitSettings {
             pan_sensitivity: 0.001,                 // 1000 pixels per world unit
             orbit_sensitivity: 0.1f32.to_radians(), // 0.1 degree per pixel
             zoom_sensitivity: 0.01,
+	    pinch_zoom_sensitivity: 1.0,
+	    rotate_sensitivity: 1.0f32.to_radians(),
             roll_sensitivity: 1.0f32.to_radians(),
             pan_key: Some(KeyCode::ControlLeft),
             orbit_key: Some(KeyCode::AltLeft),
             zoom_key: Some(KeyCode::ShiftLeft),
             roll_key: Some(KeyCode::KeyR),
-            scroll_action: Some(PanOrbitAction::Zoom),
+            scroll_action: Some(PanOrbitAction::Orbit),
             scroll_line_sensitivity: 16.0, // 1 "line" == 16 "pixels of motion"
             scroll_pixel_sensitivity: 1.0,
         }
@@ -129,8 +127,12 @@ fn pan_orbit_camera(
     kbd: Res<ButtonInput<KeyCode>>,
     mut evr_motion: MessageReader<MouseMotion>,
     mut evr_scroll: MessageReader<MouseWheel>,
+    mut evr_gesture_pan: MessageReader<PanGesture>, // only works on macos and ios
+    mut evr_gesture_pinch: MessageReader<PinchGesture>, // only works on macos and ios
+    mut evr_gesture_rotate: MessageReader<RotationGesture>, // only works on macos and ios
     mut q_camera: Query<(&PanOrbitSettings, &mut PanOrbitState, &mut Transform)>,
 ) {
+
     // First, accumulate the total amount of
     // mouse motion and scroll, from all pending events:
     let mut total_motion: Vec2 = evr_motion.read().map(|ev| ev.delta).sum();
@@ -173,6 +175,11 @@ fn pan_orbit_camera(
             total_pan -=
                 total_scroll_pixels * settings.scroll_pixel_sensitivity * settings.pan_sensitivity;
         }
+    	for ev_pan in evr_gesture_pan.read() {
+	    total_pan += ev_pan.0 * settings.pan_sensitivity;
+        }
+
+
 
         let mut total_orbit = Vec2::ZERO;
         if settings
@@ -198,6 +205,9 @@ fn pan_orbit_camera(
         {
             total_zoom -= total_motion * settings.zoom_sensitivity;
         }
+	for ev_pinch in evr_gesture_pinch.read() {
+	    total_zoom += ev_pinch.0 * settings.pinch_zoom_sensitivity;
+	}
 
         if settings.scroll_action == Some(PanOrbitAction::Zoom) {
             total_zoom -=
@@ -270,6 +280,14 @@ fn pan_orbit_camera(
             state.center += transform.up() * total_pan.y * radius;
         }
 
+	let mut total_roll:f32 = 0.;
+	for ev_rot in evr_gesture_rotate.read() {
+	    total_roll += ev_rot.0;
+	}
+	if total_roll != 0. {
+	    any = true;
+	    state.roll += total_roll * settings.rotate_sensitivity;
+	}
         if settings
             .roll_key
             .map(|key| kbd.pressed(key))
